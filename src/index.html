@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>TubeTally — Irrigation Row Counter</title>
+  <meta name="theme-color" content="#10B981" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root {
+      --green: #10B981;
+      --red: #EF4444;
+      --yellow: #F59E0B;
+      --bg: #ffffff;
+      --fg: #111827;
+      --card: #ffffff;
+      --cardBorder: #e5e7eb;
+    }
+
+    .dark {
+      --bg: #0b0b0c;
+      --fg: #e5e7eb;
+      --card: #141417;
+      --cardBorder: #26272b;
+    }
+
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      background: var(--bg);
+      color: var(--fg);
+      overflow: hidden;
+    }
+
+    #app {
+      display: flex;
+      flex-direction: column;
+      height: 100svh;
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+
+    .btn {
+      border-radius: 1rem;
+      font-weight: 800;
+      box-shadow: 0 6px 14px rgba(0, 0, 0, .08);
+      transition: transform .05s;
+    }
+
+    .btn:active {
+      transform: scale(.98);
+    }
+
+    .icon-btn {
+      border-radius: .75rem;
+      background: #f3f4f6;
+      color: #111827;
+      padding: .5rem .75rem;
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+    }
+
+    .dark .icon-btn {
+      background: #1f2937;
+      color: #f3f4f6;
+    }
+
+    .card {
+      border: 1px solid var(--cardBorder);
+      background: var(--card);
+      border-radius: 1rem;
+    }
+
+    #toast {
+      position: fixed;
+      left: 50%;
+      bottom: calc(env(safe-area-inset-bottom) + 12px);
+      transform: translateX(-50%);
+      background: #111827;
+      color: #fff;
+      padding: .55rem .8rem;
+      border-radius: .75rem;
+      font-size: .875rem;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .2s;
+      z-index: 50;
+    }
+
+    .show {
+      opacity: 1;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="app" class="select-none">
+    <!-- TOP BAR -->
+    <header class="flex justify-between items-center p-3 flex-none">
+      <h1 class="text-xl font-extrabold">TubeTally <span class="text-xs font-normal align-top opacity-60">v1.5</span>
+      </h1>
+      <div class="flex items-center gap-4">
+        <button id="shareBtn" class="icon-btn" title="Share report" aria-label="Share">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="18" cy="5" r="3"></circle>
+            <circle cx="6" cy="12" r="3"></circle>
+            <circle cx="18" cy="19" r="3"></circle>
+            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+            <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+          </svg>
+          <span class="hidden sm:inline">Share</span>
+        </button>
+        <button id="resetBtn" class="icon-btn" title="Reset" aria-label="Reset">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="1 4 1 10 7 10"></polyline>
+            <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
+          </svg>
+          <span class="hidden sm:inline">Reset</span>
+        </button>
+        <button id="settingsBtn" class="icon-btn" title="Settings" aria-label="Settings">Settings</button>
+      </div>
+    </header>
+
+    <!-- META ROW -->
+    <section id="meta" class="px-4 text-sm flex-none">
+      <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
+        <span class="opacity-70">Field:</span>
+        <span id="fieldNameLabel" class="font-semibold">—</span>
+        <span class="mx-2 opacity-30">·</span>
+        <span class="opacity-70">Started:</span>
+        <span id="startedAt" class="font-mono">—</span>
+        <span class="mx-2 opacity-30">·</span>
+        <span class="opacity-70">Logged:</span>
+        <span id="totalLogged" class="font-semibold">0 rows</span>
+      </div>
+    </section>
+
+    <!-- HISTORY (height calculated) -->
+    <section id="historyWrap" class="px-4 flex-none overflow-hidden mt-2">
+      <h2 class="font-semibold mt-1">History</h2>
+      <div id="history" class="h-full overflow-y-auto card p-3"></div>
+    </section>
+
+    <!-- CURRENT ROW (height calculated) -->
+    <section id="currentWrap" class="flex flex-col items-center justify-center text-center flex-none mt-2">
+      <div class="opacity-70 text-sm">Current Row</div>
+      <div id="currentRow" class="text-4xl font-extrabold">1</div>
+    </section>
+
+    <!-- PRIMARY BUTTONS (height calculated) -->
+    <section id="primaryWrap" class="grid grid-cols-2 gap-y-7 gap-x-7 flex-none px-4 mt-2">
+      <button id="btnNotDone" class="btn bg-[color:var(--red)] text-white h-full text-5xl py-4">NOT DONE</button>
+      <button id="btnDone" class="btn bg-[color:var(--green)] text-white h-full text-5xl py-4">DONE</button>
+    </section>
+
+    <!-- SECONDARY BUTTONS (height calculated) -->
+    <section id="secondaryWrap" class="grid grid-cols-2 gap-y-7 gap-x-7 flex-none px-4 mt-4 mb-2">
+      <button id="btnAlmost" class="btn bg-[color:var(--yellow)] text-white h-full text-3xl py-3">ALMOST DONE</button>
+      <button id="btnBack" class="btn bg-gray-200 text-gray-900 h-full text-3xl py-3">BACK</button>
+    </section>
+  </div>
+
+  <!-- SETTINGS DIALOG (no GPS/Target) -->
+  <dialog id="settingsDialog" class="rounded-2xl p-0 w-[28rem] max-w-[95vw]">
+    <form id="settingsForm" class="p-5 space-y-4">
+      <div class="text-lg font-bold">Settings</div>
+      <label class="block">
+        <span class="text-sm opacity-70">Field Name</span>
+        <input id="fieldNameInput" class="mt-1 w-full rounded-xl border border-gray-300 p-3 bg-white text-black"
+          placeholder="e.g., West 40 — Block A" />
+      </label>
+      <div class="grid grid-cols-2 gap-4">
+        <label class="flex items-center gap-2"><input id="hapticToggle" type="checkbox"
+            class="w-5 h-5" /><span>Haptic</span></label>
+        <label class="flex items-center gap-2"><input id="beepToggle" type="checkbox"
+            class="w-5 h-5" /><span>Beep</span></label>
+        <label class="flex items-center gap-2 col-span-2"><input id="wakeToggle" type="checkbox"
+            class="w-5 h-5" /><span>Keep screen awake</span></label>
+        <label class="flex items-center gap-2 col-span-2"><input id="darkToggle" type="checkbox"
+            class="w-5 h-5" /><span>Dark theme</span></label>
+        <label class="block col-span-2">
+          <span class="text-sm opacity-70">Jump to row</span>
+          <div class="flex gap-2 mt-1"><input id="jumpRowInput" type="number" min="1"
+              class="flex-1 rounded-xl border border-gray-300 p-3 bg-white text-black"
+              placeholder="Row number" /><button id="jumpBtn" type="button"
+              class="icon-btn bg-gray-900 text-white">Go</button></div>
+        </label>
+      </div>
+      <div class="flex items-center justify-between pt-2">
+        <button id="shareAgainBtn" type="button" class="icon-btn">Share report again</button>
+        <div class="flex items-center gap-2">
+          <button type="button" class="icon-btn" onclick="settingsDialog.close()">Cancel</button>
+          <button class="icon-btn bg-gray-900 text-white">Save</button>
+        </div>
+      </div>
+      <div class="text-xs opacity-60 mt-2">TubeTally v1.5</div>
+    </form>
+  </dialog>
+
+  <!-- Toast (non-blocking) -->
+  <div id="toast" role="status" aria-live="polite">Copied to clipboard</div>
+
+  <script>
+    const STORAGE_KEY = 'tubetally.v1';
+    const $ = s => document.querySelector(s);
+    const nowLocalISO = () => { const d = new Date(); const p = n => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}` };
+
+    // ---------- Audio ----------
+    let audioCtx = null;
+    function ensureAudio() { if (!audioCtx) { try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch { } } if (audioCtx?.state === 'suspended') { audioCtx.resume?.(); } }
+    function beep(freq = 440, dur = 90) { if (!audioCtx) return; const o = audioCtx.createOscillator(); const g = audioCtx.createGain(); o.type = 'sine'; o.frequency.value = freq; o.connect(g); g.connect(audioCtx.destination); g.gain.setValueAtTime(0.06, audioCtx.currentTime); o.start(); setTimeout(() => { o.stop(); }, dur); }
+
+    // ---------- Haptic ----------
+    function vib(pattern) { if (!state.prefs.haptic) return; if (navigator.vibrate) navigator.vibrate(pattern); }
+    const hapticPattern = { DONE: [20, 40, 20], 'NOT DONE': [80], 'ALMOST DONE': [40, 30, 40], UNDO: [30, 20, 30] };
+
+    // ---------- Wake Lock ----------
+    let wakeLock = null; async function updateWakeLock() { try { if (state.prefs.wake) { wakeLock = await navigator.wakeLock?.request('screen'); wakeLock?.addEventListener?.('release', () => { }); } else { await wakeLock?.release?.(); wakeLock = null; } } catch { } }
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') updateWakeLock(); });
+
+    // ---------- State ----------
+    const initial = { fieldName: '', startedAt: '', currentRow: 1, rows: {}, actions: [], prefs: { haptic: true, beep: true, wake: true, dark: false } };
+    let state = load();
+    function load() { try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || { ...initial, startedAt: nowLocalISO() }; } catch { return { ...initial, startedAt: nowLocalISO() }; } }
+    function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+
+    // ---------- Layout calculation ----------
+    function layout() {
+      const appH = document.getElementById('app').clientHeight;
+      const headerH = document.querySelector('header').offsetHeight;
+      const metaH = document.getElementById('meta').offsetHeight;
+      const remaining = appH - headerH - metaH;
+      const rHistory = 0.30, rCurrent = 0.15, rPrimary = 0.35, rSecondary = 0.10, rPadding = 0.10;
+      const H = remaining - (remaining * rPadding);
+      const setH = (id, frac) => { const el = document.getElementById(id); el.style.height = Math.max(72, Math.floor(H * frac)) + 'px'; };
+      setH('historyWrap', rHistory);
+      setH('currentWrap', rCurrent);
+      setH('primaryWrap', rPrimary);
+      setH('secondaryWrap', rSecondary);
+    }
+    window.addEventListener('resize', layout);
+    window.addEventListener('orientationchange', () => setTimeout(layout, 200));
+
+    // ---------- Render ----------
+    function render() {
+      document.documentElement.classList.toggle('dark', !!state.prefs.dark);
+      $('#currentRow').textContent = state.currentRow;
+      $('#fieldNameLabel').textContent = state.fieldName || '—';
+      $('#startedAt').textContent = state.startedAt || '—';
+      const total = Object.keys(state.rows).length; $('#totalLogged').textContent = `${total} row${total === 1 ? '' : 's'}`;
+      const h = $('#history'); h.innerHTML = '';
+      const keys = Object.keys(state.rows).map(Number).sort((a, b) => a - b);
+      for (const n of keys) {
+        const st = state.rows[n];
+        const c = st === 'DONE' ? 'bg-[color:var(--green)]' : st === 'NOT DONE' ? 'bg-[color:var(--red)]' : 'bg-[color:var(--yellow)]';
+        const d = document.createElement('div');
+        d.className = 'flex justify-between items-center border-b' + (document.documentElement.classList.contains('dark') ? ' border-gray-700' : ' border-gray-200') + ' py-2';
+        d.innerHTML = `<div class='font-mono'><span class='opacity-70'>${n}:</span> <span class='inline-block px-2 py-1 rounded text-white ${c}'>${st}</span></div>`;
+        h.appendChild(d);
+      }
+      h.scrollTop = h.scrollHeight;
+      layout();
+    }
+
+    // ---------- Actions ----------
+    function record(status) { ensureAudio(); if (state.prefs.haptic) vib(hapticPattern[status]); if (state.prefs.beep && audioCtx) beep(status === 'DONE' ? 700 : status === 'NOT DONE' ? 300 : 520, 100); state.rows[state.currentRow] = status; state.actions.push(state.currentRow); state.currentRow++; save(); render(); }
+    function undo() { ensureAudio(); const last = state.actions.pop(); if (!last) return; if (state.prefs.haptic) vib(hapticPattern.UNDO); if (state.prefs.beep && audioCtx) beep(250, 110); delete state.rows[last]; state.currentRow = last; save(); render(); }
+
+    // Long-press to test tone/haptic without recording
+    function addHoldTest(el, status) {
+      let t = null; el.addEventListener('pointerdown', () => { t = setTimeout(() => { ensureAudio(); if (state.prefs.haptic) vib(hapticPattern[status]); if (state.prefs.beep && audioCtx) beep(status === 'DONE' ? 700 : status === 'NOT DONE' ? 300 : 520, 200); t = null; }, 550); }, { passive: true });
+      ['pointerup', 'pointercancel', 'pointerleave'].forEach(ev => el.addEventListener(ev, () => { if (t) { clearTimeout(t); t = null; } }, { passive: true }));
+    }
+
+    // ---------- Report ----------
+    function buildReport() {
+      const b = { 'DONE': [], 'ALMOST DONE': [], 'NOT DONE': [] };
+      for (const [k, v] of Object.entries(state.rows)) if (b[v]) b[v].push(+k);
+      for (const k in b) b[k].sort((a, b) => a - b);
+      const cD = b['DONE'].length, cA = b['ALMOST DONE'].length, cN = b['NOT DONE'].length;
+      const header = `Field: ${state.fieldName || '—'}\nDate: ${nowLocalISO()}`;
+      const body = [`DONE (${cD} rows): ${b['DONE'].join(', ')}`, '', `ALMOST DONE (${cA} rows): ${b['ALMOST DONE'].join(', ')}`, '', `NOT DONE (${cN} rows): ${b['NOT DONE'].join(', ')}`].join('\n');
+      return `${header}\n\n${body}`;
+    }
+
+    // Share: native sheet when available; else copy silently with toast (no blocking prompts)
+    async function shareReport() { const text = buildReport(); if (navigator.share) { try { await navigator.share({ title: 'TubeTally Report', text }); return; } catch { return; } } try { await navigator.clipboard.writeText(text); showToast('Copied to clipboard'); } catch { /* ignore */ } }
+
+    function showToast(msg) { const el = $('#toast'); el.textContent = msg; el.classList.add('show'); setTimeout(() => el.classList.remove('show'), 1500); }
+
+    // Reset: clears rows/actions and storage; preserves prefs & field name
+    function resetNow() { state = { ...initial, fieldName: state.fieldName, startedAt: nowLocalISO(), prefs: { ...state.prefs } }; try { localStorage.removeItem(STORAGE_KEY); } catch { } save(); render(); }
+
+    // ---------- Bindings ----------
+    $('#btnDone').onclick = () => record('DONE');
+    $('#btnNotDone').onclick = () => record('NOT DONE');
+    $('#btnAlmost').onclick = () => record('ALMOST DONE');
+    $('#btnBack').onclick = () => undo();
+    addHoldTest($('#btnDone'), 'DONE');
+    addHoldTest($('#btnNotDone'), 'NOT DONE');
+    addHoldTest($('#btnAlmost'), 'ALMOST DONE');
+
+    $('#shareBtn').onclick = () => { ensureAudio(); shareReport(); };
+    $('#resetBtn').onclick = resetNow;
+
+    // Settings dialog
+    const settingsDialog = document.getElementById('settingsDialog');
+    $('#settingsBtn').onclick = () => {
+      $('#fieldNameInput').value = state.fieldName || '';
+      $('#hapticToggle').checked = !!state.prefs.haptic;
+      $('#beepToggle').checked = !!state.prefs.beep;
+      $('#wakeToggle').checked = !!state.prefs.wake;
+      $('#darkToggle').checked = !!state.prefs.dark;
+      settingsDialog.showModal();
+    };
+    document.getElementById('shareAgainBtn').onclick = () => shareReport();
+    document.getElementById('jumpBtn').onclick = () => { const v = parseInt($('#jumpRowInput').value, 10); if (!isNaN(v) && v > 0) { state.currentRow = v; save(); render(); settingsDialog.close(); } };
+
+    document.getElementById('settingsForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      state.fieldName = $('#fieldNameInput').value.trim();
+      state.prefs.haptic = $('#hapticToggle').checked;
+      state.prefs.beep = $('#beepToggle').checked;
+      state.prefs.wake = $('#wakeToggle').checked;
+      state.prefs.dark = $('#darkToggle').checked;
+      if (!state.startedAt) state.startedAt = nowLocalISO();
+      save(); render(); settingsDialog.close(); updateWakeLock();
+    });
+
+    // Prime audio on first interaction
+    document.addEventListener('touchstart', ensureAudio, { once: true });
+    document.addEventListener('mousedown', ensureAudio, { once: true });
+
+    render();
+    updateWakeLock();
+  </script>
+</body>
+
+</html>
