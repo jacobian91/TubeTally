@@ -42,6 +42,25 @@
       padding-bottom: env(safe-area-inset-bottom);
     }
 
+    #mainContent {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+      gap: 1rem;
+      padding: 0 1rem 1rem 1rem;
+    }
+
+    .column {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    #app.flip-layout #mainContent {
+      flex-direction: row-reverse;
+    }
+
     .btn {
       border-radius: 1rem;
       font-weight: 800;
@@ -100,7 +119,7 @@
   <div id="app" class="select-none">
     <!-- TOP BAR -->
     <header class="flex justify-between items-center p-3 flex-none">
-      <h1 class="text-xl font-extrabold">TubeTally <span class="text-xs font-normal align-top opacity-60">v1.5</span>
+      <h1 class="text-xl font-extrabold">TubeTally <span class="text-xs font-normal align-top opacity-60">v1.6</span>
       </h1>
       <div class="flex items-center gap-4">
         <button id="shareBtn" class="icon-btn" title="Share report" aria-label="Share">
@@ -140,29 +159,37 @@
       </div>
     </section>
 
-    <!-- HISTORY (height calculated) -->
-    <section id="historyWrap" class="px-4 flex-none overflow-hidden mt-2">
-      <h2 class="font-semibold mt-1">History</h2>
-      <div id="history" class="h-full overflow-y-auto card p-3"></div>
-    </section>
+    <!-- MAIN CONTENT (2 COLUMNS) -->
+    <div id="mainContent">
+      <!-- LEFT COLUMN -->
+      <div class="column">
+        <!-- HISTORY -->
+        <section id="historyWrap" class="flex flex-col flex-1 overflow-hidden">
+          <h2 class="font-semibold mt-1 mb-2 flex-none">History</h2>
+          <div id="history" class="flex-1 overflow-y-auto card p-2"></div>
+        </section>
+        <!-- BACK BUTTON -->
+        <button id="btnBack" class="btn bg-gray-200 text-gray-900 h-16 text-2xl py-3 mt-2 flex-none">BACK</button>
+      </div>
 
-    <!-- CURRENT ROW (height calculated) -->
-    <section id="currentWrap" class="flex flex-col items-center justify-center text-center flex-none mt-2">
-      <div class="opacity-70 text-sm">Current Row</div>
-      <div id="currentRow" class="text-4xl font-extrabold">1</div>
-    </section>
+      <!-- RIGHT COLUMN -->
+      <div class="column">
+        <!-- CURRENT ROW -->
+        <section id="currentWrap" class="flex flex-col items-center justify-center text-center flex-none mb-2">
+          <div class="opacity-70 text-sm">Current Row</div>
+          <div id="currentRow" class="text-4xl font-extrabold">1</div>
+        </section>
 
-    <!-- PRIMARY BUTTONS (height calculated) -->
-    <section id="primaryWrap" class="grid grid-cols-2 gap-y-7 gap-x-7 flex-none px-4 mt-2">
-      <button id="btnNotDone" class="btn bg-[color:var(--red)] text-white h-full text-5xl py-4">NOT DONE</button>
-      <button id="btnDone" class="btn bg-[color:var(--green)] text-white h-full text-5xl py-4">DONE</button>
-    </section>
+        <!-- PRIMARY BUTTONS -->
+        <section id="primaryWrap" class="grid grid-cols-1 gap-3 flex-1 overflow-hidden">
+          <button id="btnNotDone" class="btn bg-[color:var(--red)] text-white h-full text-4xl py-4">NOT DONE</button>
+          <button id="btnDone" class="btn bg-[color:var(--green)] text-white h-full text-4xl py-4">DONE</button>
+        </section>
 
-    <!-- SECONDARY BUTTONS (height calculated) -->
-    <section id="secondaryWrap" class="grid grid-cols-2 gap-y-7 gap-x-7 flex-none px-4 mt-4 mb-2">
-      <button id="btnAlmost" class="btn bg-[color:var(--yellow)] text-white h-full text-3xl py-3">ALMOST DONE</button>
-      <button id="btnBack" class="btn bg-gray-200 text-gray-900 h-full text-3xl py-3">BACK</button>
-    </section>
+        <!-- ALMOST DONE BUTTON -->
+        <button id="btnAlmost" class="btn bg-[color:var(--yellow)] text-white h-16 text-2xl py-3 mt-3 flex-none">ALMOST DONE</button>
+      </div>
+    </div>
   </div>
 
   <!-- SETTINGS DIALOG (no GPS/Target) -->
@@ -183,6 +210,8 @@
             class="w-5 h-5" /><span>Keep screen awake</span></label>
         <label class="flex items-center gap-2 col-span-2"><input id="darkToggle" type="checkbox"
             class="w-5 h-5" /><span>Dark theme</span></label>
+        <label class="flex items-center gap-2 col-span-2"><input id="leftHandedToggle" type="checkbox"
+            class="w-5 h-5" /><span>Left-handed layout</span></label>
         <label class="block col-span-2">
           <span class="text-sm opacity-70">Jump to row</span>
           <div class="flex gap-2 mt-1"><input id="jumpRowInput" type="number" min="1"
@@ -224,24 +253,14 @@
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') updateWakeLock(); });
 
     // ---------- State ----------
-    const initial = { fieldName: '', startedAt: '', currentRow: 1, rows: {}, actions: [], prefs: { haptic: true, beep: true, wake: true, dark: false } };
+    const initial = { fieldName: '', startedAt: '', currentRow: 1, rows: {}, actions: [], prefs: { haptic: true, beep: true, wake: true, dark: false, leftHanded: false } };
     let state = load();
     function load() { try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || { ...initial, startedAt: nowLocalISO() }; } catch { return { ...initial, startedAt: nowLocalISO() }; } }
     function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
 
     // ---------- Layout calculation ----------
     function layout() {
-      const appH = document.getElementById('app').clientHeight;
-      const headerH = document.querySelector('header').offsetHeight;
-      const metaH = document.getElementById('meta').offsetHeight;
-      const remaining = appH - headerH - metaH;
-      const rHistory = 0.30, rCurrent = 0.15, rPrimary = 0.35, rSecondary = 0.10, rPadding = 0.10;
-      const H = remaining - (remaining * rPadding);
-      const setH = (id, frac) => { const el = document.getElementById(id); el.style.height = Math.max(72, Math.floor(H * frac)) + 'px'; };
-      setH('historyWrap', rHistory);
-      setH('currentWrap', rCurrent);
-      setH('primaryWrap', rPrimary);
-      setH('secondaryWrap', rSecondary);
+      // Layout is now handled by flexbox, no complex calculations needed
     }
     window.addEventListener('resize', layout);
     window.addEventListener('orientationchange', () => setTimeout(layout, 200));
@@ -249,6 +268,7 @@
     // ---------- Render ----------
     function render() {
       document.documentElement.classList.toggle('dark', !!state.prefs.dark);
+      document.getElementById('app').classList.toggle('flip-layout', !!state.prefs.leftHanded);
       $('#currentRow').textContent = state.currentRow;
       $('#fieldNameLabel').textContent = state.fieldName || '—';
       $('#startedAt').textContent = state.startedAt || '—';
@@ -294,7 +314,7 @@
     function showToast(msg) { const el = $('#toast'); el.textContent = msg; el.classList.add('show'); setTimeout(() => el.classList.remove('show'), 1500); }
 
     // Reset: clears rows/actions and storage; preserves prefs & field name
-    function resetNow() { state = { ...initial, fieldName: state.fieldName, startedAt: nowLocalISO(), prefs: { ...state.prefs } }; try { localStorage.removeItem(STORAGE_KEY); } catch { } save(); render(); }
+    function resetNow() { state = { ...initial, fieldName: state.fieldName, startedAt: nowLocalISO(), prefs: { ...state.prefs }, rows: {}, actions: [] }; try { localStorage.removeItem(STORAGE_KEY); } catch { } save(); render(); }
 
     // ---------- Bindings ----------
     $('#btnDone').onclick = () => record('DONE');
@@ -316,6 +336,7 @@
       $('#beepToggle').checked = !!state.prefs.beep;
       $('#wakeToggle').checked = !!state.prefs.wake;
       $('#darkToggle').checked = !!state.prefs.dark;
+      $('#leftHandedToggle').checked = !!state.prefs.leftHanded;
       settingsDialog.showModal();
     };
     document.getElementById('shareAgainBtn').onclick = () => shareReport();
@@ -328,6 +349,7 @@
       state.prefs.beep = $('#beepToggle').checked;
       state.prefs.wake = $('#wakeToggle').checked;
       state.prefs.dark = $('#darkToggle').checked;
+      state.prefs.leftHanded = $('#leftHandedToggle').checked;
       if (!state.startedAt) state.startedAt = nowLocalISO();
       save(); render(); settingsDialog.close(); updateWakeLock();
     });
