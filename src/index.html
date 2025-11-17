@@ -200,7 +200,7 @@
       </div>
     </section>
 
-    <!-- MAIN CONTENT (2 COLUMNS) -->
+    <!-- MAIN CONTENT (3 COLUMNS) -->
     <div id="mainContent">
       <!-- LEFT COLUMN -->
       <div class="column">
@@ -222,6 +222,14 @@
         </section>
         <!-- BACK BUTTON -->
         <button id="btnBack" class="btn bg-purple-600 text-white h-16 text-2xl py-3 mt-2 flex-none">BACK</button>
+      </div>
+
+      <!-- CENTER COLUMN: VISUALIZATION -->
+      <div class="column flex-none" style="width: 3rem;">
+        <section id="vizWrap" class="flex flex-col flex-1 overflow-hidden">
+          <h2 class="font-semibold mt-1 mb-2 flex-none text-xs text-center opacity-70">Field</h2>
+          <svg id="fieldViz" class="flex-1 w-full" style="background: var(--card); border: 1px solid var(--cardBorder); border-radius: 1rem;"></svg>
+        </section>
       </div>
 
       <!-- RIGHT COLUMN -->
@@ -362,7 +370,55 @@
       if (elDone) elDone.textContent = String(counts['DONE'] || 0).padStart(3, '\u00A0');
       if (elAlmost) elAlmost.textContent = String(counts['ALMOST DONE'] || 0).padStart(3, '\u00A0');
 
+      // Render field visualization
+      renderFieldViz();
+
       layout();
+    }
+
+    // ---------- Field Visualization ----------
+    function renderFieldViz() {
+      const svg = $('#fieldViz');
+      if (!svg) return;
+      
+      const svgRect = svg.getBoundingClientRect();
+      const width = svgRect.width || 48;
+      const height = svgRect.height || 400;
+      
+      svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+      svg.innerHTML = '';
+      
+      const keys = Object.keys(state.rows).map(Number).sort((a, b) => a - b);
+      const totalRows = Math.max(state.currentRow - 1, 50); // Assume minimum 50 rows
+      const rowHeight = height / totalRows;
+      
+      // Draw each logged row as a colored band
+      for (const rowNum of keys) {
+        const status = state.rows[rowNum];
+        const color = status === 'DONE' ? '#10B981' : status === 'NOT DONE' ? '#EF4444' : '#F59E0B';
+        
+        const y = (rowNum - 1) * rowHeight;
+        const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        rect.setAttribute('x', '0');
+        rect.setAttribute('y', y);
+        rect.setAttribute('width', width);
+        rect.setAttribute('height', rowHeight);
+        rect.setAttribute('fill', color);
+        rect.style.opacity = '0.85';
+        svg.appendChild(rect);
+      }
+      
+      // Draw a line at the current row position
+      const currentY = (state.currentRow - 1) * rowHeight;
+      const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      line.setAttribute('x1', '0');
+      line.setAttribute('y1', currentY);
+      line.setAttribute('x2', width);
+      line.setAttribute('y2', currentY);
+      line.setAttribute('stroke', '#6B7280');
+      line.setAttribute('stroke-width', '2');
+      line.style.opacity = '0.5';
+      svg.appendChild(line);
     }
 
     // ---------- Actions ----------
