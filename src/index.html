@@ -104,6 +104,28 @@
       background: rgba(255, 255, 255, 0.08);
       color: inherit;
     }
+    .action-btn {
+      font-weight: 700;
+      color: #fff;
+    }
+    .action-load {
+      background: rgba(59, 130, 246, 0.85);
+    }
+    .dark .action-load {
+      background: rgba(96, 165, 250, 0.9);
+    }
+    .action-share {
+      background: rgba(16, 185, 129, 0.85);
+    }
+    .dark .action-share {
+      background: rgba(52, 211, 153, 0.9);
+    }
+    .action-remove {
+      background: rgba(239, 68, 68, 0.9);
+    }
+    .dark .action-remove {
+      background: rgba(248, 113, 113, 0.9);
+    }
 
     .card {
       border: 1px solid var(--cardBorder);
@@ -671,7 +693,7 @@
               <div class="font-semibold leading-tight">${field.fieldName || 'Untitled field'}</div>
               <div class="text-xs opacity-70">${field.startedAt || '-'}</div>
             </div>
-            <button type="button" class="icon-btn text-red-600 bg-transparent hover:bg-red-50 dark:hover:bg-red-900/30" title="Remove field" aria-label="Remove field" data-action="delete" data-id="${field.id}">
+            <button type="button" class="icon-btn action-btn action-remove" title="Remove field" aria-label="Remove field" data-action="delete" data-id="${field.id}">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <polyline points="3 6 5 6 21 6"></polyline>
                 <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path>
@@ -688,7 +710,7 @@
             <span class="stat-badge bg-[color:var(--red)] text-white">S ${String(counts.red || 0).padStart(3, '\u00A0')}</span>
           </div>
           <div class="flex flex-wrap items-center gap-2 text-xs mt-2">
-            <button type="button" class="icon-btn text-blue-600 bg-transparent hover:bg-blue-50 dark:hover:bg-blue-900/30 flex items-center gap-1" title="Load field" aria-label="Load field" data-action="load" data-id="${field.id}">
+            <button type="button" class="icon-btn action-btn action-load flex items-center gap-1" title="Load field" aria-label="Load field" data-action="load" data-id="${field.id}">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                 <path d="M7 10l5 5 5-5"></path>
@@ -696,7 +718,7 @@
               </svg>
               <span>Load</span>
             </button>
-            <button type="button" class="icon-btn text-green-600 bg-transparent hover:bg-green-50 dark:hover:bg-green-900/30 flex items-center gap-1" data-action="share" data-id="${field.id}">
+            <button type="button" class="icon-btn action-btn action-share flex items-center gap-1" data-action="share" data-id="${field.id}">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <circle cx="18" cy="5" r="3"></circle>
                 <circle cx="6" cy="12" r="3"></circle>
