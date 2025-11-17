@@ -9,7 +9,10 @@
   <link rel="manifest" href="./manifest.json" />
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <link rel="apple-touch-icon" href="./icon.svg">
+  <meta name="apple-mobile-web-app-title" content="TubeTally">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="format-detection" content="telephone=no">
+  <link rel="apple-touch-icon" sizes="180x180" href="./icon-180.png">
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     :root {
@@ -38,6 +41,8 @@
       background: var(--bg);
       color: var(--fg);
       overflow: hidden;
+      touch-action: manipulation;
+      -ms-touch-action: manipulation;
     }
 
     #app {
@@ -203,6 +208,24 @@
       flex-wrap: nowrap;
       justify-content: flex-end;
       gap: 0.5rem;
+    }
+    .saved-field-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.5rem;
+      margin-top: 0.5rem;
+    }
+    .saved-field-row .saved-field-stats {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+    }
+    .saved-field-secondary-actions {
+      display: flex;
+      flex-wrap: nowrap;
+      gap: 0.5rem;
+      margin-left: auto;
     }
     .saved-field-empty {
       border: 1px dashed var(--cardBorder);
@@ -407,9 +430,8 @@
       <label class="block">
         <input id="fieldNameDialogInput" class="mt-1 w-full rounded-xl border border-gray-300 p-3 bg-white text-black" placeholder="e.g., West 40 — Block A" />
       </label>
-      <div class="flex items-end justify-end gap-2">
-        <button type="button" class="icon-btn" data-surface onclick="fieldNameDialog.returnValue='cancel'; fieldNameDialog.close()">Cancel</button>
-        <button class="icon-btn bg-gray-900 text-white">Save</button>
+      <div class="flex items-end justify-end">
+        <button class="icon-btn bg-[color:var(--green)] text-white font-bold">Save</button>
       </div>
     </form>
   </dialog>
@@ -514,6 +536,17 @@
     const STATUS_MAP = { 'green': 'Good', 'red': 'Slow', 'yellow': 'Fast' };
     
     const nowLocalISO = () => { const d = new Date(); const p = n => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}` };
+
+    // Prevent iOS zoom gestures (double-tap/pinch)
+    let lastTouchEnd = 0;
+    document.addEventListener('touchend', (event) => {
+      const now = Date.now();
+      if (now - lastTouchEnd <= 300) {
+        event.preventDefault();
+      }
+      lastTouchEnd = now;
+    }, { passive: false });
+    document.addEventListener('gesturestart', (event) => event.preventDefault(), { passive: false });
 
     // ---------- Audio ----------
     let audioCtx = null;
@@ -705,6 +738,25 @@
               <div class="text-xs opacity-70">${field.startedAt || '-'}</div>
             </div>
             <div class="saved-field-actions">
+              <button type="button" class="icon-btn action-btn action-remove flex items-center gap-1 text-xs font-semibold" title="Remove field" aria-label="Remove field" data-action="delete" data-id="${field.id}">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="3 6 5 6 21 6"></polyline>
+                  <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path>
+                  <path d="M10 11v6"></path>
+                  <path d="M14 11v6"></path>
+                  <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path>
+                </svg>
+                <span>Remove</span>
+              </button>
+            </div>
+          </div>
+          <div class="saved-field-row">
+            <div class="saved-field-stats text-xs font-mono">
+              <span class="stat-badge bg-[color:var(--green)] text-white">G ${String(counts.green || 0).padStart(3, '\u00A0')}</span>
+              <span class="stat-badge bg-[color:var(--yellow)] text-white">F ${String(counts.yellow || 0).padStart(3, '\u00A0')}</span>
+              <span class="stat-badge bg-[color:var(--red)] text-white">S ${String(counts.red || 0).padStart(3, '\u00A0')}</span>
+            </div>
+            <div class="saved-field-secondary-actions">
               <button type="button" class="icon-btn action-btn action-load flex items-center gap-1 text-xs font-semibold" title="Load field" aria-label="Load field" data-action="load" data-id="${field.id}">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
@@ -723,22 +775,7 @@
                 </svg>
                 <span>Share</span>
               </button>
-              <button type="button" class="icon-btn action-btn action-remove flex items-center gap-1 text-xs font-semibold" title="Remove field" aria-label="Remove field" data-action="delete" data-id="${field.id}">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <polyline points="3 6 5 6 21 6"></polyline>
-                  <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path>
-                  <path d="M10 11v6"></path>
-                  <path d="M14 11v6"></path>
-                  <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path>
-                </svg>
-                <span>Remove</span>
-              </button>
             </div>
-          </div>
-          <div class="flex flex-wrap items-center gap-2 text-xs font-mono mt-2">
-            <span class="stat-badge bg-[color:var(--green)] text-white">G ${String(counts.green || 0).padStart(3, '\u00A0')}</span>
-            <span class="stat-badge bg-[color:var(--yellow)] text-white">F ${String(counts.yellow || 0).padStart(3, '\u00A0')}</span>
-            <span class="stat-badge bg-[color:var(--red)] text-white">S ${String(counts.red || 0).padStart(3, '\u00A0')}</span>
           </div>
           <div class="text-[0.7rem] opacity-60 mt-1">${statusLabel}</div>
         `;
