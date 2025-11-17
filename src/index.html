@@ -304,6 +304,31 @@
     </form>
   </dialog>
 
+  <!-- Change row status dialog -->
+  <dialog id="changeRowDialog" class="rounded-2xl p-0 w-[22rem] max-w-[95vw]">
+    <form method="dialog" class="p-5 space-y-4">
+      <div class="text-lg font-bold">Change Row Status</div>
+      <div class="text-sm opacity-70">
+        <div class="mb-3">
+          <span class="opacity-50">Row:</span>
+          <span id="changeRowNumber" class="font-mono font-bold">—</span>
+        </div>
+        <div>
+          <span class="opacity-50">Current:</span>
+          <span id="changeRowCurrent" class="font-semibold">—</span>
+        </div>
+      </div>
+      <div class="space-y-2">
+        <button type="button" class="icon-btn w-full bg-[color:var(--green)] text-white font-bold" id="changeRowBtnDone">DONE</button>
+        <button type="button" class="icon-btn w-full bg-[color:var(--red)] text-white font-bold" id="changeRowBtnNotDone">NOT DONE</button>
+        <button type="button" class="icon-btn w-full bg-[color:var(--yellow)] text-white font-bold" id="changeRowBtnAlmost">ALMOST DONE</button>
+      </div>
+      <div class="flex gap-2 justify-end pt-2">
+        <button type="button" class="icon-btn" onclick="changeRowDialog.close()">Cancel</button>
+      </div>
+    </form>
+  </dialog>
+
   <!-- Toast (non-blocking) -->
   <div id="toast" role="status" aria-live="polite">Copied to clipboard</div>
 
@@ -340,27 +365,36 @@
     window.addEventListener('orientationchange', () => setTimeout(layout, 200));
 
     // ---------- Render ----------
-    function render() {
+    function render(shouldScrollToBottom = false) {
       document.documentElement.classList.toggle('dark', !!state.prefs.dark);
       document.getElementById('app').classList.toggle('flip-layout', !!state.prefs.leftHanded);
       $('#currentRow').textContent = state.currentRow;
       $('#fieldNameLabel').textContent = state.fieldName || '—';
       $('#startedAt').textContent = state.startedAt || '—';
       const counts = { DONE: 0, 'NOT DONE': 0, 'ALMOST DONE': 0 };
-      const h = $('#history'); h.innerHTML = '';
+      const h = $('#history');
+      const scrollPos = h.scrollTop;
+      h.innerHTML = '';
       const keys = Object.keys(state.rows).map(Number).sort((a, b) => a - b);
       for (const n of keys) {
         const st = state.rows[n];
         if (counts[st] !== undefined) counts[st]++;
         const c = st === 'DONE' ? 'bg-[color:var(--green)]' : st === 'NOT DONE' ? 'bg-[color:var(--red)]' : 'bg-[color:var(--yellow)]';
         const d = document.createElement('div');
-        d.className = 'border-b' + (document.documentElement.classList.contains('dark') ? ' border-gray-700' : ' border-gray-200') + ' py-2';
+        d.className = 'border-b' + (document.documentElement.classList.contains('dark') ? ' border-gray-700' : ' border-gray-200') + ' py-2 cursor-pointer hover:opacity-80 transition-opacity';
+        d.style.userSelect = 'none';
         // pad number to 3 digits (non-breaking spaces) and right-align, make badge non-wrapping
         const num = String(n).padStart(3, '\u00A0');
         d.innerHTML = `<div class='history-row w-full'><span class='history-number font-mono opacity-70'>${num}:</span><span class='history-badge text-white ${c}'>${st}</span></div>`;
+        d.addEventListener('click', () => openChangeRowDialog(n, st));
         h.appendChild(d);
       }
-      h.scrollTop = h.scrollHeight;
+      
+      if (shouldScrollToBottom) {
+        h.scrollTop = h.scrollHeight;
+      } else {
+        h.scrollTop = scrollPos;
+      }
 
       // update the small stats under the history
       const elNot = document.getElementById('countNotDone');
@@ -422,8 +456,8 @@
     }
 
     // ---------- Actions ----------
-    function record(status) { ensureAudio(); if (state.prefs.haptic) vib(hapticPattern[status]); if (state.prefs.beep && audioCtx) beep(status === 'DONE' ? 700 : status === 'NOT DONE' ? 300 : 520, 100); state.rows[state.currentRow] = status; state.actions.push(state.currentRow); state.currentRow++; save(); render(); }
-    function undo() { ensureAudio(); const last = state.actions.pop(); if (!last) return; if (state.prefs.haptic) vib(hapticPattern.UNDO); if (state.prefs.beep && audioCtx) beep(250, 110); delete state.rows[last]; state.currentRow = last; save(); render(); }
+    function record(status) { ensureAudio(); if (state.prefs.haptic) vib(hapticPattern[status]); if (state.prefs.beep && audioCtx) beep(status === 'DONE' ? 700 : status === 'NOT DONE' ? 300 : 520, 100); state.rows[state.currentRow] = status; state.actions.push(state.currentRow); state.currentRow++; save(); render(true); }
+    function undo() { ensureAudio(); const last = state.actions.pop(); if (!last) return; if (state.prefs.haptic) vib(hapticPattern.UNDO); if (state.prefs.beep && audioCtx) beep(250, 110); delete state.rows[last]; state.currentRow = last; save(); render(true); }
 
     // Long-press to test tone/haptic without recording
     function addHoldTest(el, status) {
@@ -450,6 +484,22 @@
     // Reset: clears rows/actions and storage; preserves prefs & field name
     function resetNow() { state = { ...initial, fieldName: state.fieldName, startedAt: nowLocalISO(), prefs: { ...state.prefs }, rows: {}, actions: [] }; try { localStorage.removeItem(STORAGE_KEY); } catch { } save(); render(); }
 
+    // ---------- Change Row Dialog ----------
+    let changeRowDialogData = { rowNum: null, oldStatus: null };
+    function openChangeRowDialog(rowNum, currentStatus) {
+      changeRowDialogData = { rowNum, oldStatus: currentStatus };
+      $('#changeRowNumber').textContent = rowNum;
+      $('#changeRowCurrent').textContent = currentStatus;
+      document.getElementById('changeRowDialog').showModal();
+    }
+    function changeRowStatus(newStatus) {
+      if (changeRowDialogData.rowNum === null) return;
+      state.rows[changeRowDialogData.rowNum] = newStatus;
+      save();
+      render(false);
+      document.getElementById('changeRowDialog').close();
+    }
+
     // ---------- Bindings ----------
     $('#btnDone').onclick = () => record('DONE');
     $('#btnNotDone').onclick = () => record('NOT DONE');
@@ -458,6 +508,11 @@
     addHoldTest($('#btnDone'), 'DONE');
     addHoldTest($('#btnNotDone'), 'NOT DONE');
     addHoldTest($('#btnAlmost'), 'ALMOST DONE');
+
+    // Change row status dialog handlers
+    document.getElementById('changeRowBtnDone').onclick = () => changeRowStatus('DONE');
+    document.getElementById('changeRowBtnNotDone').onclick = () => changeRowStatus('NOT DONE');
+    document.getElementById('changeRowBtnAlmost').onclick = () => changeRowStatus('ALMOST DONE');
 
     $('#shareBtn').onclick = () => { ensureAudio(); shareReport(); };
     
@@ -532,6 +587,12 @@
         console.warn('Failed to load version.json', err);
       }
     })();
+    
+    // Scroll history to bottom on page load
+    setTimeout(() => {
+      const h = $('#history');
+      if (h) h.scrollTop = h.scrollHeight;
+    }, 0);
   </script>
   <script>
     // Register service worker for offline support and installability
