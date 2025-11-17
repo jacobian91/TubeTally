@@ -209,13 +209,13 @@
           <h2 class="font-semibold mt-1 mb-2 flex-none">History</h2>
           <div id="history" class="flex-1 overflow-y-auto card p-2"></div>
 
-          <!-- History stats: compact single-row numeric badges (Not Done / Done / Almost Done) -->
+          <!-- History stats: compact single-row numeric badges (Slow / Good / Fast) -->
           <div id="historyStats" class="mt-3 text-sm">
             <div class="flex items-center gap-3">
               <div class="flex items-center gap-2">
-                <span id="countNotDone" class="stat-badge bg-[color:var(--red)] text-white">0</span>
-                <span id="countDone" class="stat-badge bg-[color:var(--green)] text-white">0</span>
-                <span id="countAlmost" class="stat-badge bg-[color:var(--yellow)] text-white">0</span>
+                <span id="countSlow" class="stat-badge bg-[color:var(--red)] text-white">0</span>
+                <span id="countGood" class="stat-badge bg-[color:var(--green)] text-white">0</span>
+                <span id="countFast" class="stat-badge bg-[color:var(--yellow)] text-white">0</span>
               </div>
             </div>
           </div>
@@ -230,18 +230,18 @@
           <h2 class="font-semibold mt-1 mb-2 flex-none text-xs text-center opacity-70">Field</h2>
           <svg id="fieldViz" class="flex-1 w-full" style="background: var(--card); border: 1px solid var(--cardBorder); border-radius: 1rem;"></svg>
           <div id="vizLegend" class="mt-2 text-xs space-y-1 flex-none">
-            <div class="flex items-center gap-2">
-              <div class="w-3 h-3 rounded" style="background-color: #10B981;"></div>
-              <span class="opacity-70">Done</span>
-            </div>
-            <div class="flex items-center gap-2">
-              <div class="w-3 h-3 rounded" style="background-color: #EF4444;"></div>
-              <span class="opacity-70">Not Done</span>
-            </div>
-            <div class="flex items-center gap-2">
-              <div class="w-3 h-3 rounded" style="background-color: #F59E0B;"></div>
-              <span class="opacity-70">Almost</span>
-            </div>
+              <div class="flex items-center gap-2">
+                <div class="w-3 h-3 rounded" style="background-color: #10B981;"></div>
+                <span class="opacity-70">Good</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <div class="w-3 h-3 rounded" style="background-color: #EF4444;"></div>
+                <span class="opacity-70">Slow</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <div class="w-3 h-3 rounded" style="background-color: #F59E0B;"></div>
+                <span class="opacity-70">Fast</span>
+              </div>
           </div>
         </section>
       </div>
@@ -256,12 +256,12 @@
 
         <!-- PRIMARY BUTTONS -->
         <section id="primaryWrap" class="grid grid-cols-1 gap-3 flex-1 overflow-hidden">
-          <button id="btnNotDone" class="btn bg-[color:var(--red)] text-white h-full text-4xl py-4">NOT DONE</button>
-          <button id="btnDone" class="btn bg-[color:var(--green)] text-white h-full text-4xl py-4">DONE</button>
+          <button id="btnSlow" class="btn bg-[color:var(--red)] text-white h-full text-4xl py-4">Slow</button>
+          <button id="btnGood" class="btn bg-[color:var(--green)] text-white h-full text-4xl py-4">Good</button>
         </section>
 
-        <!-- ALMOST DONE BUTTON -->
-        <button id="btnAlmost" class="btn bg-[color:var(--yellow)] text-white h-16 text-2xl py-3 mt-3 flex-none">ALMOST DONE</button>
+        <!-- FAST BUTTON -->
+        <button id="btnFast" class="btn bg-[color:var(--yellow)] text-white h-16 text-2xl py-3 mt-3 flex-none">Fast</button>
       </div>
     </div>
   </div>
@@ -333,9 +333,9 @@
         </div>
       </div>
       <div class="space-y-2">
-        <button type="button" class="icon-btn w-full bg-[color:var(--green)] text-white font-bold" id="changeRowBtnDone">DONE</button>
-        <button type="button" class="icon-btn w-full bg-[color:var(--red)] text-white font-bold" id="changeRowBtnNotDone">NOT DONE</button>
-        <button type="button" class="icon-btn w-full bg-[color:var(--yellow)] text-white font-bold" id="changeRowBtnAlmost">ALMOST DONE</button>
+        <button type="button" class="icon-btn w-full bg-[color:var(--green)] text-white font-bold" id="changeRowBtnGood">Good</button>
+        <button type="button" class="icon-btn w-full bg-[color:var(--red)] text-white font-bold" id="changeRowBtnSlow">Slow</button>
+        <button type="button" class="icon-btn w-full bg-[color:var(--yellow)] text-white font-bold" id="changeRowBtnFast">Fast</button>
       </div>
       <div class="flex gap-2 justify-end pt-2">
         <button type="button" class="icon-btn" onclick="changeRowDialog.close()">Cancel</button>
@@ -350,6 +350,9 @@
     const STORAGE_KEY = 'tubetally.v1';
     const $ = s => document.querySelector(s);
     
+    // Status mapping: internal codes (color names) map to display labels
+    const STATUS_MAP = { 'green': 'Good', 'red': 'Slow', 'yellow': 'Fast' };
+    
     const nowLocalISO = () => { const d = new Date(); const p = n => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}` };
 
     // ---------- Audio ----------
@@ -359,7 +362,7 @@
 
     // ---------- Haptic ----------
     function vib(pattern) { if (!state.prefs.haptic) return; if (navigator.vibrate) navigator.vibrate(pattern); }
-    const hapticPattern = { DONE: [20, 40, 20], 'NOT DONE': [80], 'ALMOST DONE': [40, 30, 40], UNDO: [30, 20, 30] };
+    const hapticPattern = { 'Good': [20, 40, 20], 'Slow': [80], 'Fast': [40, 30, 40], 'UNDO': [30, 20, 30] };
 
     // ---------- Wake Lock ----------
     let wakeLock = null; async function updateWakeLock() { try { if (state.prefs.wake) { wakeLock = await navigator.wakeLock?.request('screen'); wakeLock?.addEventListener?.('release', () => { }); } else { await wakeLock?.release?.(); wakeLock = null; } } catch { } }
@@ -386,21 +389,22 @@
       $('#currentRow').textContent = state.currentRow;
       $('#fieldNameLabel').textContent = state.fieldName || '—';
       $('#startedAt').textContent = state.startedAt || '—';
-      const counts = { DONE: 0, 'NOT DONE': 0, 'ALMOST DONE': 0 };
+      const counts = { green: 0, red: 0, yellow: 0 };
       const h = $('#history');
       const scrollPos = h.scrollTop;
       h.innerHTML = '';
       const keys = Object.keys(state.rows).map(Number).sort((a, b) => a - b);
       for (const n of keys) {
         const st = state.rows[n];
+        const stLabel = STATUS_MAP[st] || st;
         if (counts[st] !== undefined) counts[st]++;
-        const c = st === 'DONE' ? 'bg-[color:var(--green)]' : st === 'NOT DONE' ? 'bg-[color:var(--red)]' : 'bg-[color:var(--yellow)]';
+        const c = st === 'green' ? 'bg-[color:var(--green)]' : st === 'red' ? 'bg-[color:var(--red)]' : 'bg-[color:var(--yellow)]';
         const d = document.createElement('div');
         d.className = 'border-b' + (document.documentElement.classList.contains('dark') ? ' border-gray-700' : ' border-gray-200') + ' py-2' + (viewMode ? '' : ' cursor-pointer hover:opacity-80 transition-opacity');
         d.style.userSelect = 'none';
         // pad number to 3 digits (non-breaking spaces) and right-align, make badge non-wrapping
         const num = String(n).padStart(3, '\u00A0');
-        d.innerHTML = `<div class='history-row w-full'><span class='history-number font-mono opacity-70'>${num}:</span><span class='history-badge text-white ${c}'>${st}</span></div>`;
+        d.innerHTML = `<div class='history-row w-full'><span class='history-number font-mono opacity-70'>${num}:</span><span class='history-badge text-white ${c}'>${stLabel}</span></div>`;
         if (!viewMode) {
           d.addEventListener('click', () => openChangeRowDialog(n, st));
         }
@@ -414,12 +418,12 @@
       }
 
       // update the small stats under the history
-      const elNot = document.getElementById('countNotDone');
-      const elDone = document.getElementById('countDone');
-      const elAlmost = document.getElementById('countAlmost');
-      if (elNot) elNot.textContent = String(counts['NOT DONE'] || 0).padStart(3, '\u00A0');
-      if (elDone) elDone.textContent = String(counts['DONE'] || 0).padStart(3, '\u00A0');
-      if (elAlmost) elAlmost.textContent = String(counts['ALMOST DONE'] || 0).padStart(3, '\u00A0');
+      const elSlow = document.getElementById('countSlow');
+      const elGood = document.getElementById('countGood');
+      const elFast = document.getElementById('countFast');
+      if (elSlow) elSlow.textContent = String(counts['red'] || 0).padStart(3, '\u00A0');
+      if (elGood) elGood.textContent = String(counts['green'] || 0).padStart(3, '\u00A0');
+      if (elFast) elFast.textContent = String(counts['yellow'] || 0).padStart(3, '\u00A0');
 
       // Render field visualization
       renderFieldViz();
@@ -436,6 +440,7 @@
       const vizCol = document.querySelector('.vizColumn');
       const centerCol = document.querySelector('#mainContent > .column:nth-child(2)');
       const historyStats = document.getElementById('historyStats');
+      const vizLegend = document.getElementById('vizLegend');
       const backBtn = $('#btnBack');
       
       if (viewMode) {
@@ -445,6 +450,7 @@
         vizCol.style.width = '30%'; // Make visualization 30% width
         centerCol.style.flex = 'none'; // Reset flex
         historyStats.style.display = 'none';
+        if (vizLegend) vizLegend.style.display = '';
         document.getElementById('resetBtn').style.display = 'none';
         document.getElementById('settingsBtn').style.display = 'none';
         document.getElementById('installBtn').style.display = 'none';
@@ -459,6 +465,7 @@
         vizCol.style.width = '3rem'; // Reset to thin width
         centerCol.style.flex = ''; // Reset flex
         historyStats.style.display = '';
+        if (vizLegend) vizLegend.style.display = 'none';
         document.getElementById('resetBtn').style.display = '';
         document.getElementById('settingsBtn').style.display = '';
         backBtn.textContent = 'BACK'; // Change button text back to BACK
@@ -492,7 +499,7 @@
       // Draw each logged row as a colored band
       for (const rowNum of keys) {
         const status = state.rows[rowNum];
-        const color = status === 'DONE' ? '#10B981' : status === 'NOT DONE' ? '#EF4444' : '#F59E0B';
+        const color = status === 'green' ? '#10B981' : status === 'red' ? '#EF4444' : '#F59E0B';
         
         const y = (rowNum - 1) * rowHeight;
         const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
@@ -519,33 +526,33 @@
     }
 
     // ---------- Actions ----------
-    function record(status) { ensureAudio(); if (state.prefs.haptic) vib(hapticPattern[status]); if (state.prefs.beep && audioCtx) beep(status === 'DONE' ? 700 : status === 'NOT DONE' ? 300 : 520, 100); state.rows[state.currentRow] = status; state.actions.push(state.currentRow); state.currentRow++; save(); render(true); }
+    function record(status) { ensureAudio(); const label = STATUS_MAP[status] || status; if (state.prefs.haptic) vib(hapticPattern[label]); if (state.prefs.beep && audioCtx) beep(status === 'green' ? 700 : status === 'red' ? 300 : 520, 100); state.rows[state.currentRow] = status; state.actions.push(state.currentRow); state.currentRow++; save(); render(true); }
     function undo() { ensureAudio(); const last = state.actions.pop(); if (!last) return; if (state.prefs.haptic) vib(hapticPattern.UNDO); if (state.prefs.beep && audioCtx) beep(250, 110); delete state.rows[last]; state.currentRow = last; save(); render(true); }
 
     // Long-press to test tone/haptic without recording
     function addHoldTest(el, status) {
-      let t = null; el.addEventListener('pointerdown', () => { t = setTimeout(() => { ensureAudio(); if (state.prefs.haptic) vib(hapticPattern[status]); if (state.prefs.beep && audioCtx) beep(status === 'DONE' ? 700 : status === 'NOT DONE' ? 300 : 520, 200); t = null; }, 550); }, { passive: true });
+      let t = null; el.addEventListener('pointerdown', () => { t = setTimeout(() => { ensureAudio(); const label = STATUS_MAP[status] || status; if (state.prefs.haptic) vib(hapticPattern[label]); if (state.prefs.beep && audioCtx) beep(status === 'green' ? 700 : status === 'red' ? 300 : 520, 200); t = null; }, 550); }, { passive: true });
       ['pointerup', 'pointercancel', 'pointerleave'].forEach(ev => el.addEventListener(ev, () => { if (t) { clearTimeout(t); t = null; } }, { passive: true }));
     }
 
     // ---------- Report ----------
     function buildReport() {
-      const b = { 'DONE': [], 'ALMOST DONE': [], 'NOT DONE': [] };
+      const b = { 'green': [], 'yellow': [], 'red': [] };
       for (const [k, v] of Object.entries(state.rows)) if (b[v]) b[v].push(+k);
       for (const k in b) b[k].sort((a, b) => a - b);
-      const cD = b['DONE'].length, cA = b['ALMOST DONE'].length, cN = b['NOT DONE'].length;
+      const cG = b['green'].length, cF = b['yellow'].length, cS = b['red'].length;
       const header = `Field: ${state.fieldName || '—'}\nDate: ${nowLocalISO()}`;
-      const body = [`DONE (${cD} rows): ${b['DONE'].join(', ')}`, '', `ALMOST DONE (${cA} rows): ${b['ALMOST DONE'].join(', ')}`, '', `NOT DONE (${cN} rows): ${b['NOT DONE'].join(', ')}`].join('\n');
+      const body = [`Good (${cG} rows): ${b['green'].join(', ')}`, '', `Fast (${cF} rows): ${b['yellow'].join(', ')}`, '', `Slow (${cS} rows): ${b['red'].join(', ')}`].join('\n');
       return `${header}\n\n${body}`;
     }
 
     function compressData(rows) {
-      // Convert rows object to compact string: "1:D,2:N,3:A" format
+      // Convert rows object to compact string: "1:G,2:R,3:Y" format (green/red/yellow)
       const parts = [];
       for (let i = 1; i < state.currentRow; i++) {
         if (rows[i]) {
           const status = rows[i];
-          const char = status === 'DONE' ? 'D' : status === 'NOT DONE' ? 'N' : 'A';
+          const char = status === 'green' ? 'G' : status === 'red' ? 'R' : 'Y';
           parts.push(`${i}:${char}`);
         }
       }
@@ -559,7 +566,7 @@
       for (const part of parts) {
         const [rowStr, char] = part.split(':');
         const rowNum = parseInt(rowStr, 10);
-        const status = char === 'D' ? 'DONE' : char === 'N' ? 'NOT DONE' : 'ALMOST DONE';
+        const status = char === 'G' ? 'green' : char === 'R' ? 'red' : 'yellow';
         rows[rowNum] = status;
       }
       return rows;
@@ -635,15 +642,15 @@
 
     function showToast(msg) { const el = $('#toast'); el.textContent = msg; el.classList.add('show'); setTimeout(() => el.classList.remove('show'), 1500); }
 
-    // Reset: clears rows/actions and storage; preserves prefs & field name
-    function resetNow() { state = { ...initial, fieldName: state.fieldName, startedAt: nowLocalISO(), prefs: { ...state.prefs }, rows: {}, actions: [] }; try { localStorage.removeItem(STORAGE_KEY); } catch { } save(); render(); }
+    // Reset: clears field-name/rows/status and storage; preserves preferences
+    function resetNow() { state = { ...initial, fieldName: '', startedAt: nowLocalISO(), prefs: { ...state.prefs }, rows: {}, actions: [] }; try { localStorage.removeItem(STORAGE_KEY); } catch { } save(); render(); }
 
     // ---------- Change Row Dialog ----------
     let changeRowDialogData = { rowNum: null, oldStatus: null };
     function openChangeRowDialog(rowNum, currentStatus) {
       changeRowDialogData = { rowNum, oldStatus: currentStatus };
       $('#changeRowNumber').textContent = rowNum;
-      $('#changeRowCurrent').textContent = currentStatus;
+      $('#changeRowCurrent').textContent = (STATUS_MAP[currentStatus] || currentStatus);
       document.getElementById('changeRowDialog').showModal();
     }
     function changeRowStatus(newStatus) {
@@ -655,18 +662,18 @@
     }
 
     // ---------- Bindings ----------
-    $('#btnDone').onclick = () => record('DONE');
-    $('#btnNotDone').onclick = () => record('NOT DONE');
-    $('#btnAlmost').onclick = () => record('ALMOST DONE');
+    $('#btnGood').onclick = () => record('green');
+    $('#btnSlow').onclick = () => record('red');
+    $('#btnFast').onclick = () => record('yellow');
     $('#btnBack').onclick = () => undo();
-    addHoldTest($('#btnDone'), 'DONE');
-    addHoldTest($('#btnNotDone'), 'NOT DONE');
-    addHoldTest($('#btnAlmost'), 'ALMOST DONE');
+    addHoldTest($('#btnGood'), 'green');
+    addHoldTest($('#btnSlow'), 'red');
+    addHoldTest($('#btnFast'), 'yellow');
 
     // Change row status dialog handlers
-    document.getElementById('changeRowBtnDone').onclick = () => changeRowStatus('DONE');
-    document.getElementById('changeRowBtnNotDone').onclick = () => changeRowStatus('NOT DONE');
-    document.getElementById('changeRowBtnAlmost').onclick = () => changeRowStatus('ALMOST DONE');
+    document.getElementById('changeRowBtnGood').onclick = () => changeRowStatus('green');
+    document.getElementById('changeRowBtnSlow').onclick = () => changeRowStatus('red');
+    document.getElementById('changeRowBtnFast').onclick = () => changeRowStatus('yellow');
 
     $('#shareBtn').onclick = () => { ensureAudio(); shareReport(); };
     
@@ -734,6 +741,7 @@
     // load version from single source (src/version.json)
     (async function loadVersion(){
       try {
+        // Always bypass caches when checking version.json
         const res = await fetch('./version.json', {cache: 'no-store'});
         if (!res.ok) return;
         const data = await res.json();
@@ -742,6 +750,31 @@
         const settingsVerEl = document.getElementById('settingsVersionLabel');
         if (appVerEl) appVerEl.textContent = ver;
         if (settingsVerEl) settingsVerEl.textContent = ver;
+
+        // If the version changed since last load, perform a single cache-busting reload.
+        // This avoids requiring users to use DevTools -> Empty Cache and Hard Reload.
+        try {
+          const last = localStorage.getItem('tubetally.cachedVersion') || '';
+          if (last !== ver) {
+            // store new version
+            localStorage.setItem('tubetally.cachedVersion', ver);
+            // Only trigger a reload once per session to avoid loops
+            const sessionKey = 'tubetally.reloadedFor';
+            const already = sessionStorage.getItem(sessionKey);
+            if (already !== ver) {
+              sessionStorage.setItem(sessionKey, ver);
+              // Build a cache-busting URL (preserve hash)
+              const base = window.location.href.split('#')[0].split('?')[0];
+              const hash = window.location.hash || '';
+              const cbUrl = `${base}?cb=${Date.now()}${hash}`;
+              // Use replace to avoid creating history entries
+              window.location.replace(cbUrl);
+            }
+          }
+        } catch (e) {
+          console.warn('version reload check failed', e);
+        }
+
       } catch (err) {
         console.warn('Failed to load version.json', err);
       }
