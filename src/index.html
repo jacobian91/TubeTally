@@ -6,6 +6,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
   <title>TubeTally — Irrigation Row Counter</title>
   <meta name="theme-color" content="#10B981" />
+  <link rel="manifest" href="./manifest.json" />
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <link rel="apple-touch-icon" href="./icon.svg">
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     :root {
@@ -179,6 +183,7 @@
           <span class="hidden sm:inline">Reset</span>
         </button>
         <button id="settingsBtn" class="icon-btn" title="Settings" aria-label="Settings">Settings</button>
+        <button id="installBtn" class="icon-btn hidden" title="Install app" aria-label="Install app">Install</button>
       </div>
     </header>
 
@@ -432,6 +437,47 @@
 
     render();
     updateWakeLock();
+  </script>
+  <script>
+    // Register service worker for offline support and installability
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./service-worker.js').then(() => {
+        console.log('Service worker registered');
+      }).catch((err) => {
+        console.warn('Service worker registration failed:', err);
+      });
+    }
+
+    // Optional: capture install prompt for custom UI and wire the Install button
+    window.deferredPrompt = null;
+    const installBtnEl = document.getElementById('installBtn');
+    if (installBtnEl) {
+      installBtnEl.addEventListener('click', async () => {
+        if (!window.deferredPrompt) return;
+        window.deferredPrompt.prompt();
+        try {
+          const choice = await window.deferredPrompt.userChoice;
+          if (choice.outcome === 'accepted') showToast('App installed'); else showToast('Install dismissed');
+        } catch (err) {
+          console.warn('install prompt error', err);
+        }
+        window.deferredPrompt = null;
+        installBtnEl.classList.add('hidden');
+      });
+    }
+
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      window.deferredPrompt = e;
+      if (installBtnEl) installBtnEl.classList.remove('hidden');
+      console.log('beforeinstallprompt captured');
+    });
+
+    window.addEventListener('appinstalled', (e) => {
+      window.deferredPrompt = null;
+      if (installBtnEl) installBtnEl.classList.add('hidden');
+      showToast('App installed');
+    });
   </script>
 </body>
 
