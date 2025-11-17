@@ -93,6 +93,43 @@
       border-radius: 1rem;
     }
 
+    /* History row styles: fixed-width right-aligned numbers and non-wrapping status badges */
+    .history-row {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .history-number {
+      width: 3ch;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, 'Roboto Mono', 'Segoe UI Mono', monospace;
+    }
+
+    .history-badge {
+      display: inline-block;
+      white-space: nowrap;
+      padding: .25rem .6rem;
+      font-weight: 700;
+      border-radius: .5rem;
+      font-size: .95rem;
+    }
+
+    /* Compact stat badges shown under history: 3-digit padded numbers */
+    .stat-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 3ch;
+      padding: .12rem .4rem;
+      border-radius: .5rem;
+      font-weight: 800;
+      font-size: .95rem;
+      white-space: nowrap;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, 'Roboto Mono', 'Segoe UI Mono', monospace;
+    }
+
     #toast {
       position: fixed;
       left: 50%;
@@ -153,9 +190,6 @@
         <span class="mx-2 opacity-30">·</span>
         <span class="opacity-70">Started:</span>
         <span id="startedAt" class="font-mono">—</span>
-        <span class="mx-2 opacity-30">·</span>
-        <span class="opacity-70">Logged:</span>
-        <span id="totalLogged" class="font-semibold">0 rows</span>
       </div>
     </section>
 
@@ -167,6 +201,17 @@
         <section id="historyWrap" class="flex flex-col flex-1 overflow-hidden">
           <h2 class="font-semibold mt-1 mb-2 flex-none">History</h2>
           <div id="history" class="flex-1 overflow-y-auto card p-2"></div>
+
+          <!-- History stats: compact single-row numeric badges (Not Done / Done / Almost Done) -->
+          <div id="historyStats" class="mt-3 text-sm">
+            <div class="flex items-center gap-3">
+              <div class="flex items-center gap-2">
+                <span id="countNotDone" class="stat-badge bg-[color:var(--red)] text-white">0</span>
+                <span id="countDone" class="stat-badge bg-[color:var(--green)] text-white">0</span>
+                <span id="countAlmost" class="stat-badge bg-[color:var(--yellow)] text-white">0</span>
+              </div>
+            </div>
+          </div>
         </section>
         <!-- BACK BUTTON -->
         <button id="btnBack" class="btn bg-gray-200 text-gray-900 h-16 text-2xl py-3 mt-2 flex-none">BACK</button>
@@ -196,29 +241,17 @@
   <dialog id="settingsDialog" class="rounded-2xl p-0 w-[28rem] max-w-[95vw]">
     <form id="settingsForm" class="p-5 space-y-4">
       <div class="text-lg font-bold">Settings</div>
-      <label class="block">
-        <span class="text-sm opacity-70">Field Name</span>
-        <input id="fieldNameInput" class="mt-1 w-full rounded-xl border border-gray-300 p-3 bg-white text-black"
-          placeholder="e.g., West 40 — Block A" />
-      </label>
       <div class="grid grid-cols-2 gap-4">
-        <label class="flex items-center gap-2"><input id="hapticToggle" type="checkbox"
-            class="w-5 h-5" /><span>Haptic</span></label>
-        <label class="flex items-center gap-2"><input id="beepToggle" type="checkbox"
-            class="w-5 h-5" /><span>Beep</span></label>
-        <label class="flex items-center gap-2 col-span-2"><input id="wakeToggle" type="checkbox"
-            class="w-5 h-5" /><span>Keep screen awake</span></label>
-        <label class="flex items-center gap-2 col-span-2"><input id="darkToggle" type="checkbox"
-            class="w-5 h-5" /><span>Dark theme</span></label>
-        <label class="flex items-center gap-2 col-span-2"><input id="leftHandedToggle" type="checkbox"
-            class="w-5 h-5" /><span>Left-handed layout</span></label>
-        <label class="block col-span-2">
-          <span class="text-sm opacity-70">Jump to row</span>
-          <div class="flex gap-2 mt-1"><input id="jumpRowInput" type="number" min="1"
-              class="flex-1 rounded-xl border border-gray-300 p-3 bg-white text-black"
-              placeholder="Row number" /><button id="jumpBtn" type="button"
-              class="icon-btn bg-gray-900 text-white">Go</button></div>
-        </label>
+      <label class="flex items-center gap-2"><input id="hapticToggle" type="checkbox"
+        class="w-5 h-5" /><span>Haptic</span></label>
+      <label class="flex items-center gap-2"><input id="beepToggle" type="checkbox"
+        class="w-5 h-5" /><span>Beep</span></label>
+      <label class="flex items-center gap-2 col-span-2"><input id="wakeToggle" type="checkbox"
+        class="w-5 h-5" /><span>Keep screen awake</span></label>
+      <label class="flex items-center gap-2 col-span-2"><input id="darkToggle" type="checkbox"
+        class="w-5 h-5" /><span>Dark theme</span></label>
+      <label class="flex items-center gap-2 col-span-2"><input id="leftHandedToggle" type="checkbox"
+        class="w-5 h-5" /><span>Left-handed layout</span></label>
       </div>
       <div class="flex items-center justify-between pt-2">
         <button id="shareAgainBtn" type="button" class="icon-btn">Share report again</button>
@@ -228,6 +261,20 @@
         </div>
       </div>
       <div class="text-xs opacity-60 mt-2">TubeTally v1.5</div>
+    </form>
+  </dialog>
+
+  <!-- Field name dialog (opened by clicking the field label) -->
+  <dialog id="fieldNameDialog" class="rounded-2xl p-0 w-[22rem] max-w-[95vw]">
+    <form id="fieldNameForm" class="p-5 space-y-4">
+      <div class="text-lg font-bold">Field Name</div>
+      <label class="block">
+        <input id="fieldNameDialogInput" class="mt-1 w-full rounded-xl border border-gray-300 p-3 bg-white text-black" placeholder="e.g., West 40 — Block A" />
+      </label>
+      <div class="flex items-end justify-end gap-2">
+        <button type="button" class="icon-btn" onclick="fieldNameDialog.close()">Cancel</button>
+        <button class="icon-btn bg-gray-900 text-white">Save</button>
+      </div>
     </form>
   </dialog>
 
@@ -272,18 +319,30 @@
       $('#currentRow').textContent = state.currentRow;
       $('#fieldNameLabel').textContent = state.fieldName || '—';
       $('#startedAt').textContent = state.startedAt || '—';
-      const total = Object.keys(state.rows).length; $('#totalLogged').textContent = `${total} row${total === 1 ? '' : 's'}`;
+      const counts = { DONE: 0, 'NOT DONE': 0, 'ALMOST DONE': 0 };
       const h = $('#history'); h.innerHTML = '';
       const keys = Object.keys(state.rows).map(Number).sort((a, b) => a - b);
       for (const n of keys) {
         const st = state.rows[n];
+        if (counts[st] !== undefined) counts[st]++;
         const c = st === 'DONE' ? 'bg-[color:var(--green)]' : st === 'NOT DONE' ? 'bg-[color:var(--red)]' : 'bg-[color:var(--yellow)]';
         const d = document.createElement('div');
-        d.className = 'flex justify-between items-center border-b' + (document.documentElement.classList.contains('dark') ? ' border-gray-700' : ' border-gray-200') + ' py-2';
-        d.innerHTML = `<div class='font-mono'><span class='opacity-70'>${n}:</span> <span class='inline-block px-2 py-1 rounded text-white ${c}'>${st}</span></div>`;
+        d.className = 'border-b' + (document.documentElement.classList.contains('dark') ? ' border-gray-700' : ' border-gray-200') + ' py-2';
+        // pad number to 3 digits (non-breaking spaces) and right-align, make badge non-wrapping
+        const num = String(n).padStart(3, '\u00A0');
+        d.innerHTML = `<div class='history-row w-full'><span class='history-number font-mono opacity-70'>${num}:</span><span class='history-badge text-white ${c}'>${st}</span></div>`;
         h.appendChild(d);
       }
       h.scrollTop = h.scrollHeight;
+
+      // update the small stats under the history
+      const elNot = document.getElementById('countNotDone');
+      const elDone = document.getElementById('countDone');
+      const elAlmost = document.getElementById('countAlmost');
+      if (elNot) elNot.textContent = String(counts['NOT DONE'] || 0).padStart(3, '\u00A0');
+      if (elDone) elDone.textContent = String(counts['DONE'] || 0).padStart(3, '\u00A0');
+      if (elAlmost) elAlmost.textContent = String(counts['ALMOST DONE'] || 0).padStart(3, '\u00A0');
+
       layout();
     }
 
@@ -331,7 +390,6 @@
     // Settings dialog
     const settingsDialog = document.getElementById('settingsDialog');
     $('#settingsBtn').onclick = () => {
-      $('#fieldNameInput').value = state.fieldName || '';
       $('#hapticToggle').checked = !!state.prefs.haptic;
       $('#beepToggle').checked = !!state.prefs.beep;
       $('#wakeToggle').checked = !!state.prefs.wake;
@@ -340,11 +398,9 @@
       settingsDialog.showModal();
     };
     document.getElementById('shareAgainBtn').onclick = () => shareReport();
-    document.getElementById('jumpBtn').onclick = () => { const v = parseInt($('#jumpRowInput').value, 10); if (!isNaN(v) && v > 0) { state.currentRow = v; save(); render(); settingsDialog.close(); } };
 
     document.getElementById('settingsForm').addEventListener('submit', (e) => {
       e.preventDefault();
-      state.fieldName = $('#fieldNameInput').value.trim();
       state.prefs.haptic = $('#hapticToggle').checked;
       state.prefs.beep = $('#beepToggle').checked;
       state.prefs.wake = $('#wakeToggle').checked;
@@ -352,6 +408,22 @@
       state.prefs.leftHanded = $('#leftHandedToggle').checked;
       if (!state.startedAt) state.startedAt = nowLocalISO();
       save(); render(); settingsDialog.close(); updateWakeLock();
+    });
+
+    // Field name dialog bindings (opened by clicking the field label)
+    const fieldNameDialog = document.getElementById('fieldNameDialog');
+    // also expose on window so inline onclick="fieldNameDialog.close()" works
+    window.fieldNameDialog = fieldNameDialog;
+    const fieldNameInputDialog = document.getElementById('fieldNameDialogInput');
+    document.getElementById('fieldNameLabel').addEventListener('click', () => {
+      fieldNameInputDialog.value = state.fieldName || '';
+      fieldNameDialog.showModal();
+    });
+    document.getElementById('fieldNameForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      state.fieldName = fieldNameInputDialog.value.trim();
+      if (!state.startedAt) state.startedAt = nowLocalISO();
+      save(); render(); fieldNameDialog.close();
     });
 
     // Prime audio on first interaction
