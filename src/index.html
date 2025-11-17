@@ -133,6 +133,52 @@
       white-space: nowrap;
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, 'Roboto Mono', 'Segoe UI Mono', monospace;
     }
+    .saved-field-item {
+      border: 1px solid var(--cardBorder);
+      background: var(--card);
+      border-radius: 0.9rem;
+      padding: 0.65rem;
+      cursor: pointer;
+      transition: border-color .15s, box-shadow .15s, transform .08s;
+    }
+    .saved-field-item:hover {
+      border-color: rgba(16, 185, 129, 0.6);
+    }
+    .saved-field-item:active {
+      transform: scale(.99);
+    }
+    .saved-field-item.active {
+      border-color: var(--green);
+      box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+    }
+    .saved-field-empty {
+      border: 1px dashed var(--cardBorder);
+      border-radius: 0.9rem;
+      padding: 1rem;
+      text-align: center;
+      font-size: .85rem;
+      opacity: .7;
+    }
+    #saveFieldBtn:disabled {
+      opacity: .5;
+      cursor: not-allowed;
+    }
+    #viewModeBadge {
+      background: rgba(107, 114, 128, 0.18);
+      border-radius: 999px;
+      padding: 0.15rem 0.6rem;
+      font-weight: 700;
+      font-size: .75rem;
+    }
+    dialog {
+      border: none;
+      color: var(--fg);
+    }
+    dialog form,
+    dialog > div {
+      background: var(--card);
+      color: var(--fg);
+    }
 
     #toast {
       position: fixed;
@@ -165,6 +211,15 @@
         <h1 class="text-xl font-extrabold">TubeTally <span id="appVersionLabel" class="text-xs font-normal align-top opacity-60">v1.6</span></h1>
       </div>
       <div class="flex items-center gap-4">
+        <button id="savedFieldsBtn" class="icon-btn" title="Saved fields" aria-label="Saved fields">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="16" rx="2" ry="2"></rect>
+            <path d="M3 10h18"></path>
+            <path d="M8 4v4"></path>
+          </svg>
+          <span class="hidden sm:inline">Saved</span>
+        </button>
         <button id="shareBtn" class="icon-btn" title="Share report" aria-label="Share">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
             stroke-linecap="round" stroke-linejoin="round">
@@ -176,13 +231,13 @@
           </svg>
           <span class="hidden sm:inline">Share</span>
         </button>
-        <button id="resetBtn" class="icon-btn" title="Reset" aria-label="Reset">
+        <button id="resetBtn" class="icon-btn" title="New field" aria-label="New field">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
             stroke-linecap="round" stroke-linejoin="round">
             <polyline points="1 4 1 10 7 10"></polyline>
             <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
           </svg>
-          <span class="hidden sm:inline">Reset</span>
+          <span class="hidden sm:inline">New</span>
         </button>
         <button id="settingsBtn" class="icon-btn" title="Settings" aria-label="Settings">Settings</button>
         <button id="installBtn" class="icon-btn hidden" title="Install app" aria-label="Install app">Install</button>
@@ -190,14 +245,22 @@
     </header>
 
     <!-- META ROW -->
-    <section id="meta" class="px-4 text-sm flex-none">
-      <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
+        <section id="meta" class="px-4 text-sm flex-none">
+
+      <div class="flex flex-wrap items-center gap-x-2 gap-y-1 w-full">
+
         <span class="opacity-70">Field:</span>
-        <span id="fieldNameLabel" class="font-semibold">—</span>
-        <span class="mx-2 opacity-30">·</span>
+
+        <span id="fieldNameLabel" class="font-semibold">-</span>
+        <span class="mx-2 opacity-30">&middot;</span>
+
         <span class="opacity-70">Started:</span>
-        <span id="startedAt" class="font-mono">—</span>
+
+        <span id="startedAt" class="font-mono">-</span>
+        <span id="viewModeBadge" class="hidden ml-auto text-xs uppercase tracking-wide text-green-600 dark:text-green-400">Viewing</span>
+
       </div>
+
     </section>
 
     <!-- MAIN CONTENT (3 COLUMNS) -->
@@ -300,20 +363,19 @@
         <input id="fieldNameDialogInput" class="mt-1 w-full rounded-xl border border-gray-300 p-3 bg-white text-black" placeholder="e.g., West 40 — Block A" />
       </label>
       <div class="flex items-end justify-end gap-2">
-        <button type="button" class="icon-btn" onclick="fieldNameDialog.close()">Cancel</button>
+        <button type="button" class="icon-btn" onclick="fieldNameDialog.returnValue='cancel'; fieldNameDialog.close()">Cancel</button>
         <button class="icon-btn bg-gray-900 text-white">Save</button>
       </div>
     </form>
   </dialog>
 
-  <!-- Reset confirmation dialog -->
+  <!-- New field confirmation dialog -->
   <dialog id="resetConfirmDialog" class="rounded-2xl p-0 w-[24rem] max-w-[95vw]">
     <form method="dialog" class="p-5 space-y-4">
-      <div class="text-lg font-bold">Reset data?</div>
-      <p class="text-sm opacity-70">This will clear all logged rows. Your field name and preferences will be saved.</p>
+      <div class="text-lg font-bold">Start a new field?</div>
       <div class="flex gap-2 justify-end">
         <button type="button" class="icon-btn" onclick="resetConfirmDialog.close()">Cancel</button>
-        <button type="submit" class="icon-btn bg-red-600 text-white" value="confirm">Reset</button>
+        <button type="submit" class="icon-btn bg-red-600 text-white" value="confirm">New field</button>
       </div>
     </form>
   </dialog>
@@ -343,11 +405,46 @@
     </form>
   </dialog>
 
+  <!-- Saved fields dialog -->
+  <dialog id="savedFieldsDialog" class="rounded-2xl p-0 w-[28rem] max-w-[95vw]">
+    <div class="p-5 flex flex-col gap-3 h-full max-h-[85vh]">
+      <div class="flex items-start justify-between gap-3">
+        <div>
+          <div class="text-lg font-bold leading-tight">Saved fields</div>
+          <p class="text-xs opacity-70">Keep track of multiple fields per day.</p>
+        </div>
+        <button type="button" class="icon-btn" id="closeSavedFieldsDialogBtn">Close</button>
+      </div>
+      <button id="saveFieldBtn" class="icon-btn bg-[color:var(--green)] text-white text-sm font-bold">Save current field</button>
+      <div id="savedFieldActions" class="hidden">
+        <button id="editSavedFieldBtn" class="icon-btn w-full bg-purple-600 text-white font-bold text-sm">Resume editing</button>
+      </div>
+      <div class="card flex-1 overflow-hidden">
+        <div id="savedFieldsList" class="p-3 space-y-2 overflow-y-auto max-h-[50vh]"></div>
+      </div>
+      <p class="text-[0.75rem] opacity-60">Saved fields stay on this device.</p>
+    </div>
+  </dialog>
+
+  <!-- Saved field delete confirmation -->
+  <dialog id="savedFieldDeleteDialog" class="rounded-2xl p-0 w-[24rem] max-w-[95vw]">
+    <form method="dialog" class="p-5 space-y-4">
+      <div class="text-lg font-bold">Remove saved field?</div>
+      <p class="text-sm opacity-70">This will permanently remove <span id="savedFieldDeleteLabel" class="font-semibold">this field</span> from this device.</p>
+      <div class="flex gap-2 justify-end">
+        <button type="button" class="icon-btn" onclick="savedFieldDeleteDialog.close()">Cancel</button>
+        <button type="submit" class="icon-btn bg-red-600 text-white" value="confirm">Remove</button>
+      </div>
+    </form>
+  </dialog>
+
   <!-- Toast (non-blocking) -->
   <div id="toast" role="status" aria-live="polite">Copied to clipboard</div>
 
   <script>
     const STORAGE_KEY = 'tubetally.v1';
+    const SAVED_FIELDS_KEY = 'tubetally.savedFields.v1';
+    const MAX_SAVED_FIELDS = 50;
     const $ = s => document.querySelector(s);
     
     // Status mapping: internal codes (color names) map to display labels
@@ -372,8 +469,24 @@
     const initial = { fieldName: '', startedAt: '', currentRow: 1, rows: {}, actions: [], prefs: { haptic: true, beep: true, wake: true, dark: false, leftHanded: false } };
     let state = load();
     let viewMode = false; // true = view-only shared mode, false = normal edit mode
+    let viewModeSource = null; // 'share' | 'savedField' | null
+    let viewingSavedFieldId = null;
+    let savedFieldReturnState = null;
+    let savedFieldReturnMeta = null;
+    let currentlyEditingSavedFieldId = null;
+    let savedFields = loadSavedFields();
+    let savedFieldsDialog = null;
+    let savedFieldDeleteDialog = null;
+    let pendingDeleteSavedFieldId = null;
+    let pendingFieldNameAction = null;
+    let fieldNameDialog = null;
+    let fieldNameInputDialog = null;
     function load() { try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || { ...initial, startedAt: nowLocalISO() }; } catch { return { ...initial, startedAt: nowLocalISO() }; } }
     function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+
+    // ---------- Saved fields storage ----------
+    function loadSavedFields() { try { return JSON.parse(localStorage.getItem(SAVED_FIELDS_KEY)) || []; } catch { return []; } }
+    function persistSavedFields() { try { localStorage.setItem(SAVED_FIELDS_KEY, JSON.stringify(savedFields)); } catch { } }
 
     // ---------- Layout calculation ----------
     function layout() {
@@ -387,8 +500,21 @@
       document.documentElement.classList.toggle('dark', !!state.prefs.dark);
       document.getElementById('app').classList.toggle('flip-layout', !!state.prefs.leftHanded);
       $('#currentRow').textContent = state.currentRow;
-      $('#fieldNameLabel').textContent = state.fieldName || '—';
-      $('#startedAt').textContent = state.startedAt || '—';
+      $('#fieldNameLabel').textContent = state.fieldName || '-';
+      $('#startedAt').textContent = state.startedAt || '-';
+      renderSavedFieldsList();
+      const badge = $('#viewModeBadge');
+      if (badge) {
+        if (viewMode) {
+          badge.classList.remove('hidden');
+          badge.textContent = viewModeSource === 'savedField' ? 'Viewing saved field' : 'View only';
+        } else {
+          badge.classList.add('hidden');
+        }
+      }
+      const editSavedFieldActions = document.getElementById('savedFieldActions');
+      const canResumeSavedField = viewMode && viewModeSource === 'savedField';
+      if (editSavedFieldActions) editSavedFieldActions.classList.toggle('hidden', !canResumeSavedField);
       const counts = { green: 0, red: 0, yellow: 0 };
       const h = $('#history');
       const scrollPos = h.scrollTop;
@@ -434,6 +560,55 @@
       layout();
     }
 
+    function summarizeRows(rows = {}) {
+      const totals = { green: 0, red: 0, yellow: 0 };
+      if (!rows) return totals;
+      for (const status of Object.values(rows)) {
+        if (totals[status] !== undefined) totals[status]++;
+      }
+      return totals;
+    }
+
+    function renderSavedFieldsList() {
+      const list = document.getElementById('savedFieldsList');
+      if (!list) return;
+      list.innerHTML = '';
+      if (!savedFields.length) {
+        const empty = document.createElement('div');
+        empty.className = 'saved-field-empty';
+        empty.textContent = 'No saved fields yet';
+        list.appendChild(empty);
+        return;
+      }
+      const activeId = viewMode && viewModeSource === 'savedField' ? viewingSavedFieldId : null;
+      const editingId = currentlyEditingSavedFieldId;
+      for (const field of savedFields) {
+        const counts = summarizeRows(field.rows);
+        const item = document.createElement('div');
+        item.className = 'saved-field-item';
+        if (activeId === field.id || editingId === field.id) item.classList.add('active');
+        item.dataset.id = field.id;
+        const savedText = field.savedAt ? `Saved ${field.savedAt}` : 'Saved field';
+        const statusLabel = activeId === field.id ? 'Viewing' : editingId === field.id ? 'Editing' : savedText;
+        item.innerHTML = `
+          <div class="flex items-start justify-between gap-2">
+            <div>
+              <div class="font-semibold leading-tight">${field.fieldName || 'Untitled field'}</div>
+              <div class="text-xs opacity-70">${field.startedAt || '-'}</div>
+            </div>
+            <button type="button" class="text-xs font-semibold text-red-500 opacity-70 hover:opacity-100" data-action="delete" data-id="${field.id}">Remove</button>
+          </div>
+          <div class="flex gap-2 text-xs font-mono mt-2">
+            <span class="stat-badge bg-[color:var(--green)] text-white">G ${String(counts.green || 0).padStart(3, '\u00A0')}</span>
+            <span class="stat-badge bg-[color:var(--yellow)] text-white">F ${String(counts.yellow || 0).padStart(3, '\u00A0')}</span>
+            <span class="stat-badge bg-[color:var(--red)] text-white">S ${String(counts.red || 0).padStart(3, '\u00A0')}</span>
+          </div>
+          <div class="text-[0.7rem] opacity-60 mt-1">${statusLabel}</div>
+        `;
+        list.appendChild(item);
+      }
+    }
+
     // ---------- View Mode ----------
     function updateViewMode() {
       const rightCol = document.querySelector('#mainContent > .column:last-child');
@@ -442,6 +617,12 @@
       const historyStats = document.getElementById('historyStats');
       const vizLegend = document.getElementById('vizLegend');
       const backBtn = $('#btnBack');
+      const saveFieldBtn = $('#saveFieldBtn');
+      const hasRows = Object.keys(state.rows || {}).length > 0;
+      if (saveFieldBtn) {
+        saveFieldBtn.disabled = viewMode || !hasRows;
+        saveFieldBtn.title = viewMode ? 'Exit view mode to save new fields' : (!hasRows ? 'Record at least one row to enable saving' : 'Save this field and reset for the next one');
+      }
       
       if (viewMode) {
         // Hide edit controls, show visualization
@@ -454,7 +635,7 @@
         document.getElementById('resetBtn').style.display = 'none';
         document.getElementById('settingsBtn').style.display = 'none';
         document.getElementById('installBtn').style.display = 'none';
-        backBtn.textContent = 'EDIT'; // Change button text to EDIT
+        backBtn.textContent = viewModeSource === 'savedField' ? 'EXIT VIEW' : 'EDIT';
         backBtn.onclick = () => toggleViewMode(); // Change handler to toggle view mode
         // Re-render to account for new width
         setTimeout(() => renderFieldViz(), 0);
@@ -476,8 +657,153 @@
     }
 
     function toggleViewMode() {
-      viewMode = !viewMode;
+      if (!viewMode) return;
+      if (viewModeSource === 'savedField') {
+        currentlyEditingSavedFieldId = viewingSavedFieldId;
+        savedFieldReturnState = null;
+        savedFieldReturnMeta = null;
+        viewingSavedFieldId = null;
+        viewModeSource = null;
+        viewMode = false;
+        save();
+        render();
+        showToast('Editing field');
+        return;
+      }
+      if (savedFieldReturnState) {
+        state = savedFieldReturnState;
+        savedFieldReturnState = null;
+        currentlyEditingSavedFieldId = savedFieldReturnMeta?.editingId || null;
+        savedFieldReturnMeta = null;
+        viewingSavedFieldId = null;
+        viewModeSource = null;
+        viewMode = false;
+        save();
+        render();
+        return;
+      }
+      savedFieldReturnState = null;
+      savedFieldReturnMeta = null;
+      viewingSavedFieldId = null;
+      viewModeSource = null;
+      viewMode = false;
       render();
+    }
+
+    // ---------- Saved Fields ----------
+    function nextRowFromRows(rows = {}) {
+      const keys = Object.keys(rows || {}).map(k => parseInt(k, 10)).filter(n => !isNaN(n));
+      if (!keys.length) return 1;
+      return Math.max(...keys) + 1;
+    }
+
+    function saveCurrentField() {
+      if (viewMode) {
+        showToast('Exit view mode to save fields');
+        return;
+      }
+      const hasRows = Object.keys(state.rows || {}).length;
+      if (!hasRows) {
+        showToast('No rows recorded yet');
+        return;
+      }
+      if (!state.fieldName) {
+        pendingFieldNameAction = 'saveField';
+        if (fieldNameInputDialog) {
+          fieldNameInputDialog.value = state.fieldName || '';
+          setTimeout(() => fieldNameInputDialog?.focus(), 0);
+        }
+        fieldNameDialog?.showModal();
+        return;
+      }
+      const editingId = currentlyEditingSavedFieldId;
+      const snapshot = {
+        id: editingId || `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        fieldName: state.fieldName || `Field ${savedFields.length + 1}`,
+        startedAt: state.startedAt || nowLocalISO(),
+        savedAt: nowLocalISO(),
+        rows: { ...state.rows },
+        currentRow: state.currentRow
+      };
+      savedFields = savedFields.filter(f => f.id !== snapshot.id);
+      savedFields.unshift(snapshot);
+      if (savedFields.length > MAX_SAVED_FIELDS) savedFields = savedFields.slice(0, MAX_SAVED_FIELDS);
+      persistSavedFields();
+      renderSavedFieldsList();
+      showToast(editingId ? 'Field updated' : 'Field saved');
+      currentlyEditingSavedFieldId = null;
+      resetNow();
+    }
+
+    function deleteSavedField(id) {
+      const idx = savedFields.findIndex(f => f.id === id);
+      if (idx === -1) return;
+      const removed = savedFields[idx];
+      savedFields.splice(idx, 1);
+      persistSavedFields();
+      if (viewMode && viewModeSource === 'savedField' && viewingSavedFieldId === id) {
+        toggleViewMode();
+      } else {
+        renderSavedFieldsList();
+      }
+      showToast('Field removed');
+      return removed;
+    }
+
+    function requestDeleteSavedField(id) {
+      const entry = savedFields.find(f => f.id === id);
+      if (!entry || !savedFieldDeleteDialog) return;
+      pendingDeleteSavedFieldId = id;
+      const label = entry.fieldName || 'this field';
+      const labelEl = document.getElementById('savedFieldDeleteLabel');
+      if (labelEl) labelEl.textContent = label;
+      savedFieldDeleteDialog.showModal();
+    }
+
+    function viewSavedField(id) {
+      if (!id) return;
+      if (viewMode && viewModeSource === 'savedField' && viewingSavedFieldId === id) return;
+      const entry = savedFields.find(f => f.id === id);
+      if (!entry) return;
+      if (viewModeSource !== 'savedField' || !savedFieldReturnState) {
+        savedFieldReturnState = state;
+        savedFieldReturnMeta = { editingId: currentlyEditingSavedFieldId };
+      }
+      currentlyEditingSavedFieldId = null;
+      const prefsSource = savedFieldReturnState ? savedFieldReturnState.prefs : state.prefs;
+      state = {
+        ...initial,
+        fieldName: entry.fieldName || '',
+        startedAt: entry.startedAt || '',
+        rows: { ...entry.rows },
+        actions: [],
+        currentRow: entry.currentRow || nextRowFromRows(entry.rows),
+        prefs: { ...prefsSource }
+      };
+      viewMode = true;
+      viewModeSource = 'savedField';
+      viewingSavedFieldId = entry.id;
+      if (savedFieldsDialog?.open) savedFieldsDialog.close();
+      render(true);
+      showToast(`Viewing ${entry.fieldName || 'saved field'}`);
+    }
+
+    function beginEditingSavedField() {
+      if (!(viewMode && viewModeSource === 'savedField' && viewingSavedFieldId)) return;
+      const entry = savedFields.find(f => f.id === viewingSavedFieldId);
+      if (!entry) return;
+      const label = entry.fieldName || 'this field';
+      if (!window.confirm(`Resume editing "${label}"? This will replace your current active field.`)) return;
+      currentlyEditingSavedFieldId = entry.id;
+      savedFieldReturnState = null;
+      savedFieldReturnMeta = null;
+      viewMode = false;
+      viewModeSource = null;
+      viewingSavedFieldId = null;
+      save();
+      render();
+      showToast('Editing field');
+      if (savedFieldsDialog?.open) savedFieldsDialog.close();
     }
 
     // ---------- Field Visualization ----------
@@ -526,8 +852,36 @@
     }
 
     // ---------- Actions ----------
-    function record(status) { ensureAudio(); const label = STATUS_MAP[status] || status; if (state.prefs.haptic) vib(hapticPattern[label]); if (state.prefs.beep && audioCtx) beep(status === 'green' ? 700 : status === 'red' ? 300 : 520, 100); state.rows[state.currentRow] = status; state.actions.push(state.currentRow); state.currentRow++; save(); render(true); }
-    function undo() { ensureAudio(); const last = state.actions.pop(); if (!last) return; if (state.prefs.haptic) vib(hapticPattern.UNDO); if (state.prefs.beep && audioCtx) beep(250, 110); delete state.rows[last]; state.currentRow = last; save(); render(true); }
+    function record(status) {
+      if (viewMode) {
+        showToast('Viewing saved field');
+        return;
+      }
+      ensureAudio();
+      const label = STATUS_MAP[status] || status;
+      if (state.prefs.haptic) vib(hapticPattern[label]);
+      if (state.prefs.beep && audioCtx) beep(status === 'green' ? 700 : status === 'red' ? 300 : 520, 100);
+      state.rows[state.currentRow] = status;
+      state.actions.push(state.currentRow);
+      state.currentRow++;
+      save();
+      render(true);
+    }
+    function undo() {
+      if (viewMode) {
+        toggleViewMode();
+        return;
+      }
+      ensureAudio();
+      const last = state.actions.pop();
+      if (!last) return;
+      if (state.prefs.haptic) vib(hapticPattern.UNDO);
+      if (state.prefs.beep && audioCtx) beep(250, 110);
+      delete state.rows[last];
+      state.currentRow = last;
+      save();
+      render(true);
+    }
 
     // Long-press to test tone/haptic without recording
     function addHoldTest(el, status) {
@@ -615,6 +969,11 @@
           state.currentRow = Math.max(...Object.keys(state.rows).map(Number), 0) + 1 || 1;
           console.log('Loaded state:', state);
           viewMode = true; // Enable view mode for shared URLs
+          viewModeSource = 'share';
+          viewingSavedFieldId = null;
+          currentlyEditingSavedFieldId = null;
+          savedFieldReturnState = null;
+          savedFieldReturnMeta = null;
           save();
           return true;
         }
@@ -643,7 +1002,19 @@
     function showToast(msg) { const el = $('#toast'); el.textContent = msg; el.classList.add('show'); setTimeout(() => el.classList.remove('show'), 1500); }
 
     // Reset: clears field-name/rows/status and storage; preserves preferences
-    function resetNow() { state = { ...initial, fieldName: '', startedAt: nowLocalISO(), prefs: { ...state.prefs }, rows: {}, actions: [] }; try { localStorage.removeItem(STORAGE_KEY); } catch { } save(); render(); }
+    function resetNow() {
+      const prefsCopy = { ...state.prefs };
+      viewMode = false;
+      viewModeSource = null;
+      viewingSavedFieldId = null;
+      savedFieldReturnState = null;
+      savedFieldReturnMeta = null;
+      currentlyEditingSavedFieldId = null;
+      state = { ...initial, fieldName: '', startedAt: nowLocalISO(), prefs: prefsCopy, rows: {}, actions: [] };
+      try { localStorage.removeItem(STORAGE_KEY); } catch { }
+      save();
+      render();
+    }
 
     // ---------- Change Row Dialog ----------
     let changeRowDialogData = { rowNum: null, oldStatus: null };
@@ -654,6 +1025,7 @@
       document.getElementById('changeRowDialog').showModal();
     }
     function changeRowStatus(newStatus) {
+      if (viewMode) return;
       if (changeRowDialogData.rowNum === null) return;
       state.rows[changeRowDialogData.rowNum] = newStatus;
       save();
@@ -670,12 +1042,56 @@
     addHoldTest($('#btnSlow'), 'red');
     addHoldTest($('#btnFast'), 'yellow');
 
+    const saveFieldBtnEl = document.getElementById('saveFieldBtn');
+    if (saveFieldBtnEl) saveFieldBtnEl.addEventListener('click', () => { ensureAudio(); saveCurrentField(); });
+    const editSavedFieldBtnEl = document.getElementById('editSavedFieldBtn');
+    if (editSavedFieldBtnEl) editSavedFieldBtnEl.addEventListener('click', () => { ensureAudio(); beginEditingSavedField(); });
+    const savedFieldsListEl = document.getElementById('savedFieldsList');
+    if (savedFieldsListEl) {
+      savedFieldsListEl.addEventListener('click', (event) => {
+        const deleteBtn = event.target.closest('[data-action="delete"]');
+        if (deleteBtn) {
+          event.stopPropagation();
+          requestDeleteSavedField(deleteBtn.dataset.id);
+          return;
+        }
+        const item = event.target.closest('.saved-field-item');
+        if (item) {
+          ensureAudio();
+          viewSavedField(item.dataset.id);
+        }
+      });
+    }
+
     // Change row status dialog handlers
     document.getElementById('changeRowBtnGood').onclick = () => changeRowStatus('green');
     document.getElementById('changeRowBtnSlow').onclick = () => changeRowStatus('red');
     document.getElementById('changeRowBtnFast').onclick = () => changeRowStatus('yellow');
 
     $('#shareBtn').onclick = () => { ensureAudio(); shareReport(); };
+    
+    savedFieldsDialog = document.getElementById('savedFieldsDialog');
+    if (savedFieldsDialog) {
+      const savedFieldsBtn = document.getElementById('savedFieldsBtn');
+      if (savedFieldsBtn) savedFieldsBtn.addEventListener('click', () => {
+        ensureAudio();
+        renderSavedFieldsList();
+        savedFieldsDialog.showModal();
+      });
+      const closeSavedFieldsDialogBtn = document.getElementById('closeSavedFieldsDialogBtn');
+      if (closeSavedFieldsDialogBtn) closeSavedFieldsDialogBtn.addEventListener('click', () => savedFieldsDialog.close());
+    }
+    
+    savedFieldDeleteDialog = document.getElementById('savedFieldDeleteDialog');
+    if (savedFieldDeleteDialog) {
+      window.savedFieldDeleteDialog = savedFieldDeleteDialog;
+      savedFieldDeleteDialog.addEventListener('close', () => {
+        if (savedFieldDeleteDialog.returnValue === 'confirm' && pendingDeleteSavedFieldId) {
+          deleteSavedField(pendingDeleteSavedFieldId);
+        }
+        pendingDeleteSavedFieldId = null;
+      });
+    }
     
     // Reset button: show confirmation dialog instead of immediately resetting
     const resetConfirmDialog = document.getElementById('resetConfirmDialog');
@@ -685,7 +1101,7 @@
     resetConfirmDialog.addEventListener('close', (e) => {
       if (resetConfirmDialog.returnValue === 'confirm') {
         resetNow();
-        showToast('Data reset');
+        showToast('New field started');
       }
     });
 
@@ -711,11 +1127,13 @@
     });
 
     // Field name dialog bindings (opened by clicking the field label)
-    const fieldNameDialog = document.getElementById('fieldNameDialog');
+    fieldNameDialog = document.getElementById('fieldNameDialog');
+    if (fieldNameDialog?.open) fieldNameDialog.close();
     // also expose on window so inline onclick="fieldNameDialog.close()" works
     window.fieldNameDialog = fieldNameDialog;
-    const fieldNameInputDialog = document.getElementById('fieldNameDialogInput');
+    fieldNameInputDialog = document.getElementById('fieldNameDialogInput');
     document.getElementById('fieldNameLabel').addEventListener('click', () => {
+      if (viewMode) return;
       fieldNameInputDialog.value = state.fieldName || '';
       fieldNameDialog.showModal();
     });
@@ -723,8 +1141,24 @@
       e.preventDefault();
       state.fieldName = fieldNameInputDialog.value.trim();
       if (!state.startedAt) state.startedAt = nowLocalISO();
-      save(); render(); fieldNameDialog.close();
+      save();
+      render();
+      const pendingAction = pendingFieldNameAction;
+      pendingFieldNameAction = null;
+      fieldNameDialog.returnValue = 'submit';
+      fieldNameDialog.close();
+      if (pendingAction === 'saveField' && state.fieldName) {
+        setTimeout(() => saveCurrentField(), 0);
+      }
     });
+    if (fieldNameDialog) {
+      fieldNameDialog.addEventListener('close', () => {
+        if (fieldNameDialog.returnValue !== 'submit') {
+          pendingFieldNameAction = null;
+        }
+        fieldNameDialog.returnValue = '';
+      });
+    }
 
     // Prime audio on first interaction
     document.addEventListener('touchstart', ensureAudio, { once: true });
