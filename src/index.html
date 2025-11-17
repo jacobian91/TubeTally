@@ -225,10 +225,24 @@
       </div>
 
       <!-- CENTER COLUMN: VISUALIZATION -->
-      <div class="column flex-none" style="width: 3rem;">
+      <div class="column flex-none vizColumn" style="width: 3rem;">
         <section id="vizWrap" class="flex flex-col flex-1 overflow-hidden">
           <h2 class="font-semibold mt-1 mb-2 flex-none text-xs text-center opacity-70">Field</h2>
           <svg id="fieldViz" class="flex-1 w-full" style="background: var(--card); border: 1px solid var(--cardBorder); border-radius: 1rem;"></svg>
+          <div id="vizLegend" class="mt-2 text-xs space-y-1 flex-none">
+            <div class="flex items-center gap-2">
+              <div class="w-3 h-3 rounded" style="background-color: #10B981;"></div>
+              <span class="opacity-70">Done</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <div class="w-3 h-3 rounded" style="background-color: #EF4444;"></div>
+              <span class="opacity-70">Not Done</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <div class="w-3 h-3 rounded" style="background-color: #F59E0B;"></div>
+              <span class="opacity-70">Almost</span>
+            </div>
+          </div>
         </section>
       </div>
 
@@ -354,6 +368,7 @@
     // ---------- State ----------
     const initial = { fieldName: '', startedAt: '', currentRow: 1, rows: {}, actions: [], prefs: { haptic: true, beep: true, wake: true, dark: false, leftHanded: false } };
     let state = load();
+    let viewMode = false; // true = view-only shared mode, false = normal edit mode
     function load() { try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || { ...initial, startedAt: nowLocalISO() }; } catch { return { ...initial, startedAt: nowLocalISO() }; } }
     function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
 
@@ -381,12 +396,14 @@
         if (counts[st] !== undefined) counts[st]++;
         const c = st === 'DONE' ? 'bg-[color:var(--green)]' : st === 'NOT DONE' ? 'bg-[color:var(--red)]' : 'bg-[color:var(--yellow)]';
         const d = document.createElement('div');
-        d.className = 'border-b' + (document.documentElement.classList.contains('dark') ? ' border-gray-700' : ' border-gray-200') + ' py-2 cursor-pointer hover:opacity-80 transition-opacity';
+        d.className = 'border-b' + (document.documentElement.classList.contains('dark') ? ' border-gray-700' : ' border-gray-200') + ' py-2' + (viewMode ? '' : ' cursor-pointer hover:opacity-80 transition-opacity');
         d.style.userSelect = 'none';
         // pad number to 3 digits (non-breaking spaces) and right-align, make badge non-wrapping
         const num = String(n).padStart(3, '\u00A0');
         d.innerHTML = `<div class='history-row w-full'><span class='history-number font-mono opacity-70'>${num}:</span><span class='history-badge text-white ${c}'>${st}</span></div>`;
-        d.addEventListener('click', () => openChangeRowDialog(n, st));
+        if (!viewMode) {
+          d.addEventListener('click', () => openChangeRowDialog(n, st));
+        }
         h.appendChild(d);
       }
       
@@ -407,7 +424,53 @@
       // Render field visualization
       renderFieldViz();
 
+      // Update visibility based on view mode
+      updateViewMode();
+
       layout();
+    }
+
+    // ---------- View Mode ----------
+    function updateViewMode() {
+      const rightCol = document.querySelector('#mainContent > .column:last-child');
+      const vizCol = document.querySelector('.vizColumn');
+      const centerCol = document.querySelector('#mainContent > .column:nth-child(2)');
+      const historyStats = document.getElementById('historyStats');
+      const backBtn = $('#btnBack');
+      
+      if (viewMode) {
+        // Hide edit controls, show visualization
+        rightCol.style.display = 'none'; // Hide entire right column
+        centerCol.style.display = ''; // Show visualization
+        vizCol.style.width = '30%'; // Make visualization 30% width
+        centerCol.style.flex = 'none'; // Reset flex
+        historyStats.style.display = 'none';
+        document.getElementById('resetBtn').style.display = 'none';
+        document.getElementById('settingsBtn').style.display = 'none';
+        document.getElementById('installBtn').style.display = 'none';
+        backBtn.textContent = 'EDIT'; // Change button text to EDIT
+        backBtn.onclick = () => toggleViewMode(); // Change handler to toggle view mode
+        // Re-render to account for new width
+        setTimeout(() => renderFieldViz(), 0);
+      } else {
+        // Show all controls
+        rightCol.style.display = ''; // Show entire right column
+        centerCol.style.display = '';
+        vizCol.style.width = '3rem'; // Reset to thin width
+        centerCol.style.flex = ''; // Reset flex
+        historyStats.style.display = '';
+        document.getElementById('resetBtn').style.display = '';
+        document.getElementById('settingsBtn').style.display = '';
+        backBtn.textContent = 'BACK'; // Change button text back to BACK
+        backBtn.onclick = () => undo(); // Change handler back to undo
+        // Re-render to account for new width
+        setTimeout(() => renderFieldViz(), 0);
+      }
+    }
+
+    function toggleViewMode() {
+      viewMode = !viewMode;
+      render();
     }
 
     // ---------- Field Visualization ----------
@@ -476,8 +539,99 @@
       return `${header}\n\n${body}`;
     }
 
+    function compressData(rows) {
+      // Convert rows object to compact string: "1:D,2:N,3:A" format
+      const parts = [];
+      for (let i = 1; i < state.currentRow; i++) {
+        if (rows[i]) {
+          const status = rows[i];
+          const char = status === 'DONE' ? 'D' : status === 'NOT DONE' ? 'N' : 'A';
+          parts.push(`${i}:${char}`);
+        }
+      }
+      return parts.join(',');
+    }
+
+    function decompressData(compressed) {
+      const rows = {};
+      if (!compressed) return rows;
+      const parts = compressed.split(',');
+      for (const part of parts) {
+        const [rowStr, char] = part.split(':');
+        const rowNum = parseInt(rowStr, 10);
+        const status = char === 'D' ? 'DONE' : char === 'N' ? 'NOT DONE' : 'ALMOST DONE';
+        rows[rowNum] = status;
+      }
+      return rows;
+    }
+
+    function buildShareUrl() {
+      // Compress data: field name and compressed rows
+      const compressed = compressData(state.rows);
+      const data = `${state.fieldName || 'Field'}|${state.startedAt || ''}|${compressed}`;
+      const encoded = btoa(data).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+      // Generate full URL with hash, works for both file:// and http(s)://
+      const currentUrl = window.location.href.split('#')[0]; // Remove any existing hash
+      return `${currentUrl}#d=${encoded}`;
+    }
+
+    function loadFromShareUrl() {
+      const fullHash = window.location.hash;
+      console.log('Full hash:', fullHash);
+      if (!fullHash || !fullHash.includes('d=')) return false;
+      
+      try {
+        // Extract the hash portion after #
+        let encoded = fullHash.substring(fullHash.indexOf('d=') + 2);
+        console.log('Encoded:', encoded);
+        
+        // Restore padding for base64
+        encoded = encoded.replace(/-/g, '+').replace(/_/g, '/');
+        // Add padding as needed
+        while (encoded.length % 4) encoded += '=';
+        console.log('After padding:', encoded);
+        
+        const data = atob(encoded);
+        console.log('Decoded data:', data);
+        
+        const parts = data.split('|');
+        const fieldName = parts[0];
+        const startedAt = parts[1];
+        const compressed = parts[2];
+        
+        console.log('Parsed:', { fieldName, startedAt, compressed });
+        
+        if (fieldName !== undefined) {
+          state.fieldName = fieldName === 'Field' ? '' : fieldName;
+          state.startedAt = startedAt || nowLocalISO();
+          state.rows = decompressData(compressed);
+          state.currentRow = Math.max(...Object.keys(state.rows).map(Number), 0) + 1 || 1;
+          console.log('Loaded state:', state);
+          viewMode = true; // Enable view mode for shared URLs
+          save();
+          return true;
+        }
+      } catch (err) {
+        console.error('Failed to load from share URL:', err);
+      }
+      return false;
+    }
+
     // Share: native sheet when available; else copy silently with toast (no blocking prompts)
-    async function shareReport() { const text = buildReport(); if (navigator.share) { try { await navigator.share({ title: 'TubeTally Report', text }); return; } catch { return; } } try { await navigator.clipboard.writeText(text); showToast('Copied to clipboard'); } catch { /* ignore */ } }
+    async function shareReport() { 
+      const url = buildShareUrl();
+      const text = buildReport() + '\n\n' + url;
+      if (navigator.share) { 
+        try { 
+          await navigator.share({ title: 'TubeTally Report', text }); 
+          return; 
+        } catch { return; } 
+      } 
+      try { 
+        await navigator.clipboard.writeText(text); 
+        showToast('Copied to clipboard'); 
+      } catch { /* ignore */ } 
+    }
 
     function showToast(msg) { const el = $('#toast'); el.textContent = msg; el.classList.add('show'); setTimeout(() => el.classList.remove('show'), 1500); }
 
@@ -569,7 +723,12 @@
     document.addEventListener('touchstart', ensureAudio, { once: true });
     document.addEventListener('mousedown', ensureAudio, { once: true });
 
-    render();
+    const isShared = loadFromShareUrl();
+    render(isShared);
+    if (isShared) {
+      // Delay toast slightly to ensure DOM is ready
+      setTimeout(() => showToast('Report loaded from URL'), 100);
+    }
     updateWakeLock();
 
     // load version from single source (src/version.json)
