@@ -160,8 +160,10 @@
   <div id="app" class="select-none">
     <!-- TOP BAR -->
     <header class="flex justify-between items-center p-3 flex-none">
-      <h1 class="text-xl font-extrabold">TubeTally <span class="text-xs font-normal align-top opacity-60">v1.6</span>
-      </h1>
+      <div class="flex items-center gap-2">
+        <img src="./icon.svg" alt="TubeTally" class="w-8 h-8" />
+        <h1 class="text-xl font-extrabold">TubeTally <span id="appVersionLabel" class="text-xs font-normal align-top opacity-60">v1.6</span></h1>
+      </div>
       <div class="flex items-center gap-4">
         <button id="shareBtn" class="icon-btn" title="Share report" aria-label="Share">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
@@ -219,7 +221,7 @@
           </div>
         </section>
         <!-- BACK BUTTON -->
-        <button id="btnBack" class="btn bg-gray-200 text-gray-900 h-16 text-2xl py-3 mt-2 flex-none">BACK</button>
+        <button id="btnBack" class="btn bg-purple-600 text-white h-16 text-2xl py-3 mt-2 flex-none">BACK</button>
       </div>
 
       <!-- RIGHT COLUMN -->
@@ -242,13 +244,13 @@
     </div>
   </div>
 
-  <!-- SETTINGS DIALOG (no GPS/Target) -->
+  <!-- SETTINGS DIALOG -->
   <dialog id="settingsDialog" class="rounded-2xl p-0 w-[28rem] max-w-[95vw]">
     <form id="settingsForm" class="p-5 space-y-4">
       <div class="text-lg font-bold">Settings</div>
       <div class="grid grid-cols-2 gap-4">
       <label class="flex items-center gap-2"><input id="hapticToggle" type="checkbox"
-        class="w-5 h-5" /><span>Haptic</span></label>
+        class="w-5 h-5" /><span>Vibration</span></label>
       <label class="flex items-center gap-2"><input id="beepToggle" type="checkbox"
         class="w-5 h-5" /><span>Beep</span></label>
       <label class="flex items-center gap-2 col-span-2"><input id="wakeToggle" type="checkbox"
@@ -258,14 +260,13 @@
       <label class="flex items-center gap-2 col-span-2"><input id="leftHandedToggle" type="checkbox"
         class="w-5 h-5" /><span>Left-handed layout</span></label>
       </div>
-      <div class="flex items-center justify-between pt-2">
-        <button id="shareAgainBtn" type="button" class="icon-btn">Share report again</button>
+      <div class="flex items-center justify-end pt-2">
         <div class="flex items-center gap-2">
           <button type="button" class="icon-btn" onclick="settingsDialog.close()">Cancel</button>
           <button class="icon-btn bg-gray-900 text-white">Save</button>
         </div>
       </div>
-      <div class="text-xs opacity-60 mt-2">TubeTally v1.5</div>
+      <div class="text-xs opacity-60 mt-2" id="settingsVersionLabel"></div>
     </form>
   </dialog>
 
@@ -283,12 +284,25 @@
     </form>
   </dialog>
 
+  <!-- Reset confirmation dialog -->
+  <dialog id="resetConfirmDialog" class="rounded-2xl p-0 w-[24rem] max-w-[95vw]">
+    <form method="dialog" class="p-5 space-y-4">
+      <div class="text-lg font-bold">Reset data?</div>
+      <p class="text-sm opacity-70">This will clear all logged rows. Your field name and preferences will be saved.</p>
+      <div class="flex gap-2 justify-end">
+        <button type="button" class="icon-btn" onclick="resetConfirmDialog.close()">Cancel</button>
+        <button type="submit" class="icon-btn bg-red-600 text-white" value="confirm">Reset</button>
+      </div>
+    </form>
+  </dialog>
+
   <!-- Toast (non-blocking) -->
   <div id="toast" role="status" aria-live="polite">Copied to clipboard</div>
 
   <script>
     const STORAGE_KEY = 'tubetally.v1';
     const $ = s => document.querySelector(s);
+    
     const nowLocalISO = () => { const d = new Date(); const p = n => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}` };
 
     // ---------- Audio ----------
@@ -390,7 +404,18 @@
     addHoldTest($('#btnAlmost'), 'ALMOST DONE');
 
     $('#shareBtn').onclick = () => { ensureAudio(); shareReport(); };
-    $('#resetBtn').onclick = resetNow;
+    
+    // Reset button: show confirmation dialog instead of immediately resetting
+    const resetConfirmDialog = document.getElementById('resetConfirmDialog');
+    $('#resetBtn').onclick = () => {
+      resetConfirmDialog.showModal();
+    };
+    resetConfirmDialog.addEventListener('close', (e) => {
+      if (resetConfirmDialog.returnValue === 'confirm') {
+        resetNow();
+        showToast('Data reset');
+      }
+    });
 
     // Settings dialog
     const settingsDialog = document.getElementById('settingsDialog');
@@ -402,8 +427,6 @@
       $('#leftHandedToggle').checked = !!state.prefs.leftHanded;
       settingsDialog.showModal();
     };
-    document.getElementById('shareAgainBtn').onclick = () => shareReport();
-
     document.getElementById('settingsForm').addEventListener('submit', (e) => {
       e.preventDefault();
       state.prefs.haptic = $('#hapticToggle').checked;
@@ -437,6 +460,22 @@
 
     render();
     updateWakeLock();
+
+    // load version from single source (src/version.json)
+    (async function loadVersion(){
+      try {
+        const res = await fetch('./version.json', {cache: 'no-store'});
+        if (!res.ok) return;
+        const data = await res.json();
+        const ver = data.version || '';
+        const appVerEl = document.getElementById('appVersionLabel');
+        const settingsVerEl = document.getElementById('settingsVersionLabel');
+        if (appVerEl) appVerEl.textContent = ver;
+        if (settingsVerEl) settingsVerEl.textContent = ver;
+      } catch (err) {
+        console.warn('Failed to load version.json', err);
+      }
+    })();
   </script>
   <script>
     // Register service worker for offline support and installability

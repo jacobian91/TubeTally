@@ -1,0 +1,8 @@
+{
+  "name": "tubetally",
+  "version": "1.6.0",
+  "description": "TubeTally web app",
+  "scripts": {
+    "gen:version": "node tools/gen-version.js"
+  }
+}
