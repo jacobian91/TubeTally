@@ -7,7 +7,9 @@ const outPath = path.join(__dirname, '..', 'src', 'version.json');
 try {
   const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
   const ver = pkg.version || '0.0.0';
-  const payload = { version: `v${ver}` };
+  // Keep the stored value prefix-free; the UI adds exactly one "v".
+  const displayVer = ver.endsWith('.0') ? ver.slice(0, -2) : ver;
+  const payload = { version: displayVer };
   fs.writeFileSync(outPath, JSON.stringify(payload, null, 2), 'utf8');
   console.log('Wrote', outPath, payload);
 } catch (err) {
