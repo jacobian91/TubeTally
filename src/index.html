@@ -570,12 +570,16 @@
       <div id="authProfilePanel" class="hidden space-y-4">
         <form id="authProfileForm" class="space-y-4">
           <label class="block text-sm font-semibold">Name
-            <input id="profileName" class="auth-input mt-1 font-normal" type="text" autocomplete="name" maxlength="100" required />
+            <input id="profileName" class="auth-input mt-1 font-normal opacity-70" type="text" autocomplete="name" maxlength="100" required readonly />
           </label>
+          <button id="profileEditName" class="icon-btn w-full justify-center" data-surface type="button">Edit name</button>
+          <div id="profileNameActions" class="hidden grid grid-cols-2 gap-2">
+            <button id="profileCancelName" class="icon-btn justify-center" data-surface type="button">Cancel</button>
+            <button id="profileSave" class="icon-btn justify-center bg-[color:var(--green)] text-white font-bold" type="submit">Save name</button>
+          </div>
           <label class="block text-sm font-semibold">Email
             <input id="profileEmail" class="auth-input mt-1 font-normal opacity-70" type="email" readonly />
           </label>
-          <button id="profileSave" class="icon-btn w-full justify-center bg-[color:var(--green)] text-white font-bold" type="submit">Save name</button>
         </form>
         <button id="profileChangeEmail" class="icon-btn w-full justify-center" data-surface type="button">Change email</button>
         <form id="profileEmailForm" class="hidden space-y-3 rounded-xl border border-gray-300 dark:border-gray-700 p-3">
@@ -597,7 +601,7 @@
   <!-- Toast (non-blocking) -->
   <div id="toast" role="status" aria-live="polite">Copied to clipboard</div>
 
-  <script src="./auth.v2.3.bundle.js" defer></script>
+  <script src="./auth.v2.4.bundle.js" defer></script>
   <script>
     const STORAGE_KEY = 'tubetally.v1';
     window.deferredPrompt = null;

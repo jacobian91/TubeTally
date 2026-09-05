@@ -43,6 +43,9 @@ const profilePanel = document.getElementById('authProfilePanel');
 const profileForm = document.getElementById('authProfileForm');
 const profileNameInput = document.getElementById('profileName');
 const profileEmailInput = document.getElementById('profileEmail');
+const profileEditNameButton = document.getElementById('profileEditName');
+const profileNameActions = document.getElementById('profileNameActions');
+const profileCancelNameButton = document.getElementById('profileCancelName');
 const profileSaveButton = document.getElementById('profileSave');
 const profileChangeEmailButton = document.getElementById('profileChangeEmail');
 const profileEmailForm = document.getElementById('profileEmailForm');
@@ -177,6 +180,10 @@ function showAccount() {
   profileChangeEmailButton.classList.remove('hidden');
   profileNewEmailInput.value = '';
   profileNameInput.value = displayName(currentUser) === currentUser.email ? '' : displayName(currentUser);
+  profileNameInput.readOnly = true;
+  profileNameInput.classList.add('opacity-70');
+  profileEditNameButton.classList.remove('hidden');
+  profileNameActions.classList.add('hidden');
   profileEmailInput.value = currentUser.email || '';
   title.textContent = displayName(currentUser);
   description.textContent = 'Manage your TubeTally account.';
@@ -222,6 +229,19 @@ closeButton.addEventListener('click', () => dialog.close());
 loginModeButton.addEventListener('click', () => setMode('login'));
 signupModeButton.addEventListener('click', () => setMode('signup'));
 forgotButton.addEventListener('click', () => setMode('recover'));
+
+profileEditNameButton.addEventListener('click', () => {
+  setError();
+  profileNameInput.readOnly = false;
+  profileNameInput.classList.remove('opacity-70');
+  profileEditNameButton.classList.add('hidden');
+  profileNameActions.classList.remove('hidden');
+  profileNameInput.focus();
+  profileNameInput.select();
+});
+
+profileCancelNameButton.addEventListener('click', () => showAccount());
+
 profileForm.addEventListener('submit', async (event) => {
   event.preventDefault();
   setError();
