@@ -92,6 +92,7 @@ function mergeUser(existingUser, nextUser) {
   const definedUser = Object.fromEntries(
     Object.entries(nextUser).filter(([, value]) => value !== undefined),
   );
+  if (!definedUser.email && existingUser?.email) delete definedUser.email;
   return {
     ...(existingUser || {}),
     ...definedUser,
