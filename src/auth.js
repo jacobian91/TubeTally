@@ -124,7 +124,14 @@ async function processCallback() {
 }
 
 accountButton.addEventListener('click', openDialog);
-forgotButton.addEventListener('click', () => setMode('recover'));
+forgotButton.addEventListener('click', (event) => {
+  event.preventDefault();
+  event.stopPropagation();
+  setMode('recover');
+  requestAnimationFrame(() => {
+    if (!dialog.open) dialog.showModal();
+  });
+});
 logoutButton.addEventListener('click', async () => {
   try {
     await logout();
