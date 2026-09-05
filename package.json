@@ -3,7 +3,7 @@
   "version": "2.0.0",
   "description": "TubeTally web app",
   "scripts": {
-    "build:auth": "esbuild src/auth.js --bundle --minify --format=iife --outfile=src/auth.v2.bundle.js",
+    "build:auth": "esbuild src/auth.js --bundle --minify --format=iife --outfile=src/auth.v2.1.bundle.js",
     "gen:version": "node tools/gen-version.js",
     "build": "npm run build:auth && npm run gen:version"
   },

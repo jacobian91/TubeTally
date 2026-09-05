@@ -567,6 +567,16 @@
         <button id="authSubmit" class="icon-btn w-full justify-center bg-[color:var(--green)] text-white font-bold" type="submit">Log in</button>
         <button id="authForgot" class="w-full text-sm text-center underline opacity-75" type="button">Forgot password?</button>
       </form>
+      <form id="authProfileForm" class="hidden space-y-4">
+        <label class="block text-sm font-semibold">Name
+          <input id="profileName" class="auth-input mt-1 font-normal" type="text" autocomplete="name" maxlength="100" required />
+        </label>
+        <label class="block text-sm font-semibold">Email
+          <input id="profileEmail" class="auth-input mt-1 font-normal" type="email" autocomplete="email" required />
+        </label>
+        <button id="profileSave" class="icon-btn w-full justify-center bg-[color:var(--green)] text-white font-bold" type="submit">Save account</button>
+        <button id="profileResetPassword" class="icon-btn w-full justify-center" data-surface type="button">Send password reset email</button>
+      </form>
       <button id="authLogout" class="hidden icon-btn w-full justify-center bg-red-600 text-white font-bold" type="button">Log out</button>
     </div>
   </dialog>
@@ -574,7 +584,7 @@
   <!-- Toast (non-blocking) -->
   <div id="toast" role="status" aria-live="polite">Copied to clipboard</div>
 
-  <script src="./auth.v2.bundle.js" defer></script>
+  <script src="./auth.v2.1.bundle.js" defer></script>
   <script>
     const STORAGE_KEY = 'tubetally.v1';
     window.deferredPrompt = null;

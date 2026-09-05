@@ -39,6 +39,11 @@ const loginModeButton = document.getElementById('authLoginMode');
 const signupModeButton = document.getElementById('authSignupMode');
 const nameGroup = document.getElementById('authNameGroup');
 const nameInput = document.getElementById('authName');
+const profileForm = document.getElementById('authProfileForm');
+const profileNameInput = document.getElementById('profileName');
+const profileEmailInput = document.getElementById('profileEmail');
+const profileSaveButton = document.getElementById('profileSave');
+const profileResetPasswordButton = document.getElementById('profileResetPassword');
 
 let currentUser = null;
 let mode = 'login';
@@ -113,6 +118,7 @@ function setMode(nextMode) {
   setError();
   form.reset();
   form.classList.remove('hidden');
+  profileForm.classList.add('hidden');
   const hidesEmail = nextMode === 'invite' || nextMode === 'reset';
   const hidesPassword = nextMode === 'recover';
   const asksForName = nextMode === 'signup';
@@ -144,8 +150,11 @@ function setMode(nextMode) {
 function showAccount() {
   setError();
   form.classList.add('hidden');
+  profileForm.classList.remove('hidden');
+  profileNameInput.value = currentUser.name || currentUser.userMetadata?.full_name || '';
+  profileEmailInput.value = currentUser.email;
   title.textContent = displayName(currentUser);
-  description.textContent = currentUser.email;
+  description.textContent = 'Manage your Tube Tally account.';
   logoutButton.classList.remove('hidden');
 }
 
@@ -188,6 +197,46 @@ closeButton.addEventListener('click', () => dialog.close());
 loginModeButton.addEventListener('click', () => setMode('login'));
 signupModeButton.addEventListener('click', () => setMode('signup'));
 forgotButton.addEventListener('click', () => setMode('recover'));
+profileForm.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  setError();
+  const fullName = profileNameInput.value.trim();
+  const email = profileEmailInput.value.trim();
+  if (!fullName) {
+    setError('Enter your name.');
+    return;
+  }
+
+  profileSaveButton.disabled = true;
+  try {
+    const emailChanged = email.toLowerCase() !== currentUser.email.toLowerCase();
+    currentUser = await updateUser({
+      data: { ...(currentUser.userMetadata || {}), full_name: fullName },
+      ...(emailChanged ? { email } : {}),
+    });
+    renderAccountButton();
+    showAccount();
+    showNotice(emailChanged ? 'Check your new email to confirm the change' : 'Account updated');
+  } catch (error) {
+    setError(friendlyError(error));
+  } finally {
+    profileSaveButton.disabled = false;
+  }
+});
+
+profileResetPasswordButton.addEventListener('click', async () => {
+  setError();
+  profileResetPasswordButton.disabled = true;
+  try {
+    await requestPasswordRecovery(currentUser.email);
+    showNotice('Check your email for a password reset link');
+  } catch (error) {
+    setError(friendlyError(error));
+  } finally {
+    profileResetPasswordButton.disabled = false;
+  }
+});
+
 logoutButton.addEventListener('click', async () => {
   try {
     await logout();
