@@ -1,6 +1,6 @@
 {
   "name": "tubetally",
-  "version": "1.6.0",
+  "version": "2.0.0",
   "description": "TubeTally web app",
   "scripts": {
     "build:auth": "esbuild src/auth.js --bundle --minify --format=iife --outfile=src/auth.bundle.js",
