@@ -55,6 +55,7 @@ const profileConfirmEmailButton = document.getElementById('profileConfirmEmail')
 const profileResetPasswordButton = document.getElementById('profileResetPassword');
 
 let currentUser = null;
+let knownEmail = '';
 let mode = 'login';
 let callbackToken = null;
 let hasOauthProviders = false;
@@ -84,7 +85,12 @@ function setError(message = '') {
 }
 
 function displayName(user) {
-  return user?.name || user?.userMetadata?.full_name || user?.email || 'Account';
+  return user?.name || user?.userMetadata?.full_name || currentUserEmail(user) || 'Account';
+}
+
+function currentUserEmail(user = currentUser) {
+  if (user?.email) knownEmail = user.email;
+  return user?.email || knownEmail;
 }
 
 function mergeUser(existingUser, nextUser) {
@@ -118,7 +124,8 @@ function renderAccountButton() {
   accountInitials.textContent = currentUser ? initials(name) : '';
   accountName.textContent = currentUser ? name : 'Account';
   accountName.classList.toggle('hidden', !currentUser);
-  accountButton.title = currentUser ? `Signed in as ${currentUser.email}` : 'Log in to Tube Tally';
+  const email = currentUserEmail();
+  accountButton.title = currentUser && email ? `Signed in as ${email}` : 'Log in to Tube Tally';
   accountButton.setAttribute('aria-label', currentUser ? `Account for ${name}` : 'Log in or sign up');
 }
 
@@ -183,12 +190,13 @@ function showAccount() {
   profileEmailForm.classList.add('hidden');
   profileChangeEmailButton.classList.remove('hidden');
   profileNewEmailInput.value = '';
-  profileNameInput.value = displayName(currentUser) === currentUser.email ? '' : displayName(currentUser);
+  const email = currentUserEmail();
+  profileNameInput.value = displayName(currentUser) === email ? '' : displayName(currentUser);
   profileNameInput.readOnly = true;
   profileNameInput.classList.add('opacity-70');
   profileEditNameButton.classList.remove('hidden');
   profileNameActions.classList.add('hidden');
-  profileEmailInput.value = currentUser.email || '';
+  profileEmailInput.value = email;
   title.textContent = displayName(currentUser);
   description.textContent = 'Manage your TubeTally account.';
   logoutButton.classList.remove('hidden');
@@ -288,7 +296,7 @@ profileEmailForm.addEventListener('submit', async (event) => {
   event.preventDefault();
   setError();
   const email = profileNewEmailInput.value.trim();
-  if (email.toLowerCase() === currentUser.email.toLowerCase()) {
+  if (email.toLowerCase() === currentUserEmail().toLowerCase()) {
     setError('Enter a different email address.');
     return;
   }
@@ -311,7 +319,7 @@ profileResetPasswordButton.addEventListener('click', async () => {
   setError();
   profileResetPasswordButton.disabled = true;
   try {
-    await requestPasswordRecovery(currentUser.email);
+    await requestPasswordRecovery(currentUserEmail());
     showNotice('Check your email for a password reset link');
   } catch (error) {
     setError(friendlyError(error));
@@ -324,6 +332,7 @@ logoutButton.addEventListener('click', async () => {
   try {
     await logout();
     currentUser = null;
+    knownEmail = '';
     renderAccountButton();
     dialog.close();
     showNotice('Logged out');
