@@ -513,6 +513,14 @@
       </div>
       <div id="authError" class="hidden rounded-xl bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-200 p-3 text-sm" role="alert"></div>
       <form id="authForm" class="space-y-4">
+        <div id="authOauthSection" class="hidden space-y-3">
+          <div id="authOauthButtons" class="space-y-2"></div>
+          <div class="flex items-center gap-3 text-xs opacity-60">
+            <span class="h-px flex-1 bg-gray-300 dark:bg-gray-700"></span>
+            <span>or use email</span>
+            <span class="h-px flex-1 bg-gray-300 dark:bg-gray-700"></span>
+          </div>
+        </div>
         <label id="authEmailGroup" class="block text-sm font-semibold">Email
           <input id="authEmail" class="auth-input mt-1 font-normal" type="email" autocomplete="email" required />
         </label>

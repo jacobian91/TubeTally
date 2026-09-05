@@ -2,10 +2,12 @@ import {
   AuthError,
   MissingIdentityError,
   acceptInvite,
+  getSettings,
   getUser,
   handleAuthCallback,
   login,
   logout,
+  oauthLogin,
   onAuthChange,
   requestPasswordRecovery,
   updateUser,
@@ -25,10 +27,20 @@ const forgotButton = document.getElementById('authForgot');
 const logoutButton = document.getElementById('authLogout');
 const errorMessage = document.getElementById('authError');
 const accountDetails = document.getElementById('authAccountDetails');
+const oauthSection = document.getElementById('authOauthSection');
+const oauthButtons = document.getElementById('authOauthButtons');
 
 let currentUser = null;
 let mode = 'login';
 let callbackToken = null;
+let hasOauthProviders = false;
+
+const PROVIDER_LABELS = {
+  google: 'Google',
+  github: 'GitHub',
+  gitlab: 'GitLab',
+  bitbucket: 'Bitbucket',
+};
 
 function showNotice(message) {
   if (typeof window.showToast === 'function') window.showToast(message);
@@ -55,6 +67,25 @@ function renderAccountButton() {
   accountButton.title = currentUser ? `Signed in as ${currentUser.email}` : 'Log in to Tube Tally';
 }
 
+function renderOauthProviders(settings) {
+  oauthButtons.replaceChildren();
+  const providers = Object.entries(settings.providers || {})
+    .filter(([provider, enabled]) => enabled && provider !== 'email' && PROVIDER_LABELS[provider])
+    .map(([provider]) => provider);
+
+  for (const provider of providers) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'icon-btn w-full justify-center border border-gray-300 dark:border-gray-600 font-bold';
+    button.textContent = `Continue with ${PROVIDER_LABELS[provider]}`;
+    button.addEventListener('click', () => oauthLogin(provider));
+    oauthButtons.appendChild(button);
+  }
+
+  hasOauthProviders = providers.length > 0;
+  oauthSection.classList.toggle('hidden', !hasOauthProviders || mode !== 'login');
+}
+
 function setMode(nextMode) {
   mode = nextMode;
   setError();
@@ -68,6 +99,7 @@ function setMode(nextMode) {
   passwordGroup.classList.toggle('hidden', hidesPassword);
   passwordInput.disabled = hidesPassword;
   forgotButton.classList.toggle('hidden', nextMode !== 'login');
+  oauthSection.classList.toggle('hidden', !hasOauthProviders || nextMode !== 'login');
   logoutButton.classList.add('hidden');
 
   const content = {
@@ -187,6 +219,11 @@ async function initializeAuth() {
   await processCallback();
   currentUser = (await getUser()) || currentUser;
   renderAccountButton();
+  try {
+    renderOauthProviders(await getSettings());
+  } catch (error) {
+    console.warn('Unable to load enabled login providers', error);
+  }
 }
 
 initializeAuth();
