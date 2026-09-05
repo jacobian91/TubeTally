@@ -6,7 +6,7 @@ const ASSETS_TO_CACHE = [
   './manifest.json',
   './icon.svg',
   './version.json',
-  './auth.bundle.js'
+  './auth.v2.bundle.js'
 ];
 
 self.addEventListener('install', (event) => {
@@ -32,7 +32,7 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(event.request.url);
   const refreshOnline = event.request.mode === 'navigate'
-    || url.pathname.endsWith('/auth.bundle.js')
+    || url.pathname.endsWith('.bundle.js')
     || url.pathname.endsWith('/version.json');
 
   if (refreshOnline) {
