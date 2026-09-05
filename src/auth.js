@@ -26,9 +26,11 @@ const passwordInput = document.getElementById('authPassword');
 const submitButton = document.getElementById('authSubmit');
 const forgotButton = document.getElementById('authForgot');
 const logoutButton = document.getElementById('authLogout');
+const closeButton = document.getElementById('authClose');
 const errorMessage = document.getElementById('authError');
-const accountDetails = document.getElementById('authAccountDetails');
 const accountAvatar = document.getElementById('accountAvatar');
+const accountIcon = document.getElementById('accountIcon');
+const accountInitials = document.getElementById('accountInitials');
 const accountName = document.getElementById('accountName');
 const oauthSection = document.getElementById('authOauthSection');
 const oauthButtons = document.getElementById('authOauthButtons');
@@ -77,10 +79,9 @@ function initials(name) {
 
 function renderAccountButton() {
   const name = currentUser ? displayName(currentUser) : '';
-  accountAvatar.textContent = currentUser ? initials(name) : '';
-  if (!currentUser) {
-    accountAvatar.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"></circle><path d="M4 21a8 8 0 0 1 16 0"></path></svg>';
-  }
+  accountIcon.classList.toggle('hidden', !!currentUser);
+  accountInitials.classList.toggle('hidden', !currentUser);
+  accountInitials.textContent = currentUser ? initials(name) : '';
   accountName.textContent = currentUser ? name : 'Account';
   accountName.classList.toggle('hidden', !currentUser);
   accountButton.title = currentUser ? `Signed in as ${currentUser.email}` : 'Log in to Tube Tally';
@@ -111,7 +112,6 @@ function setMode(nextMode) {
   mode = nextMode;
   setError();
   form.reset();
-  accountDetails.classList.add('hidden');
   form.classList.remove('hidden');
   const hidesEmail = nextMode === 'invite' || nextMode === 'reset';
   const hidesPassword = nextMode === 'recover';
@@ -144,7 +144,6 @@ function setMode(nextMode) {
 function showAccount() {
   setError();
   form.classList.add('hidden');
-  accountDetails.classList.remove('hidden');
   title.textContent = displayName(currentUser);
   description.textContent = currentUser.email;
   logoutButton.classList.remove('hidden');
@@ -185,16 +184,10 @@ async function processCallback() {
 }
 
 accountButton.addEventListener('click', openDialog);
+closeButton.addEventListener('click', () => dialog.close());
 loginModeButton.addEventListener('click', () => setMode('login'));
 signupModeButton.addEventListener('click', () => setMode('signup'));
-forgotButton.addEventListener('click', (event) => {
-  event.preventDefault();
-  event.stopPropagation();
-  setMode('recover');
-  requestAnimationFrame(() => {
-    if (!dialog.open) dialog.showModal();
-  });
-});
+forgotButton.addEventListener('click', () => setMode('recover'));
 logoutButton.addEventListener('click', async () => {
   try {
     await logout();
@@ -218,11 +211,17 @@ form.addEventListener('submit', async (event) => {
       dialog.close();
       showNotice('Logged in');
     } else if (mode === 'signup') {
-      currentUser = await signup(emailInput.value.trim(), passwordInput.value, {
-        full_name: nameInput.value.trim(),
+      const fullName = nameInput.value.trim();
+      if (!fullName) {
+        setError('Enter your name.');
+        return;
+      }
+      const newUser = await signup(emailInput.value.trim(), passwordInput.value, {
+        full_name: fullName,
       });
       dialog.close();
-      showNotice(currentUser.emailVerified ? 'Tube Tally account created' : 'Check your email to confirm your account');
+      currentUser = newUser.emailVerified ? newUser : null;
+      showNotice(newUser.emailVerified ? 'Tube Tally account created' : 'Check your email to confirm your account');
     } else if (mode === 'recover') {
       await requestPasswordRecovery(emailInput.value.trim());
       dialog.close();

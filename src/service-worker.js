@@ -1,10 +1,11 @@
-const CACHE_NAME = 'tubetally-cache-v8';
+const CACHE_NAME = 'tubetally-runtime-v1';
 const OFFLINE_URL = './index.html';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
   './manifest.json',
   './icon.svg',
+  './version.json',
   './auth.bundle.js'
 ];
 
@@ -27,25 +28,41 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Ignore non-GET requests
   if (event.request.method !== 'GET') return;
 
-  event.respondWith(
-    caches.match(event.request).then((cached) => {
-      if (cached) return cached;
-      return fetch(event.request).then((response) => {
-        // Cache successful responses for future use
-        if (response && response.status === 200 && response.type !== 'opaque') {
-          const respClone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, respClone));
+  const url = new URL(event.request.url);
+  const refreshOnline = event.request.mode === 'navigate'
+    || url.pathname.endsWith('/auth.bundle.js')
+    || url.pathname.endsWith('/version.json');
+
+  if (refreshOnline) {
+    event.respondWith((async () => {
+      try {
+        const response = await fetch(event.request);
+        if (response.status === 200 && response.type !== 'opaque') {
+          const cache = await caches.open(CACHE_NAME);
+          const cacheKey = event.request.mode === 'navigate' ? OFFLINE_URL : event.request;
+          await cache.put(cacheKey, response.clone());
         }
         return response;
-      }).catch(() => {
-        // Fallback to index.html for navigation requests when offline
-        if (event.request.mode === 'navigate' || (event.request.headers.get('accept') || '').includes('text/html')) {
-          return caches.match(OFFLINE_URL);
-        }
-      });
-    })
-  );
+      } catch {
+        const cached = await caches.match(event.request);
+        if (cached) return cached;
+        if (event.request.mode === 'navigate') return caches.match(OFFLINE_URL);
+        return new Response('', { status: 503, statusText: 'Offline' });
+      }
+    })());
+    return;
+  }
+
+  event.respondWith((async () => {
+    const cached = await caches.match(event.request);
+    if (cached) return cached;
+    const response = await fetch(event.request);
+    if (response.status === 200 && response.type !== 'opaque') {
+      const cache = await caches.open(CACHE_NAME);
+      await cache.put(event.request, response.clone());
+    }
+    return response;
+  })());
 });

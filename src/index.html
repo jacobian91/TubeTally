@@ -300,9 +300,10 @@
         <button id="settingsBtn" class="icon-btn" data-surface title="Settings" aria-label="Settings">Settings</button>
         <button id="accountBtn" class="icon-btn !p-1.5" data-surface title="Log in to Tube Tally" aria-label="Tube Tally account">
           <span id="accountAvatar" class="account-avatar" aria-hidden="true">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <svg id="accountIcon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <circle cx="12" cy="8" r="4"></circle><path d="M4 21a8 8 0 0 1 16 0"></path>
             </svg>
+            <span id="accountInitials" class="hidden"></span>
           </span>
           <span id="accountName" class="hidden max-w-28 truncate">Account</span>
         </button>
@@ -530,12 +531,15 @@
   <!-- Credentials are submitted directly to Netlify Identity, not stored by Tube Tally. -->
   <dialog id="authDialog" class="rounded-2xl p-0 w-[25rem] max-w-[95vw]">
     <div class="p-5 space-y-4">
-      <div class="flex items-center gap-3">
+      <div class="flex items-start gap-3">
         <img src="./icon.svg" alt="" class="w-10 h-10" />
-        <div>
+        <div class="flex-1">
           <div id="authTitle" class="text-lg font-bold">Log in to Tube Tally</div>
           <p id="authDescription" class="text-sm opacity-70">Use the email address connected to your invited account.</p>
         </div>
+        <button id="authClose" class="icon-btn !p-2" data-surface type="button" aria-label="Close account dialog" title="Close">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"></path></svg>
+        </button>
       </div>
       <div id="authError" class="hidden rounded-xl bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-200 p-3 text-sm" role="alert"></div>
       <form id="authForm" class="space-y-4">
@@ -563,9 +567,6 @@
         <button id="authSubmit" class="icon-btn w-full justify-center bg-[color:var(--green)] text-white font-bold" type="submit">Log in</button>
         <button id="authForgot" class="w-full text-sm text-center underline opacity-75" type="button">Forgot password?</button>
       </form>
-      <div id="authAccountDetails" class="hidden text-sm rounded-xl border border-gray-200 dark:border-gray-700 p-3">
-        Your field data still stays on this device. Organization sharing will be added next.
-      </div>
       <button id="authLogout" class="hidden icon-btn w-full justify-center bg-red-600 text-white font-bold" type="button">Log out</button>
     </div>
   </dialog>
