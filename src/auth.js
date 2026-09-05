@@ -10,6 +10,7 @@ import {
   oauthLogin,
   onAuthChange,
   requestPasswordRecovery,
+  signup,
   updateUser,
 } from '@netlify/identity';
 
@@ -27,13 +28,21 @@ const forgotButton = document.getElementById('authForgot');
 const logoutButton = document.getElementById('authLogout');
 const errorMessage = document.getElementById('authError');
 const accountDetails = document.getElementById('authAccountDetails');
+const accountAvatar = document.getElementById('accountAvatar');
+const accountName = document.getElementById('accountName');
 const oauthSection = document.getElementById('authOauthSection');
 const oauthButtons = document.getElementById('authOauthButtons');
+const modeTabs = document.getElementById('authModeTabs');
+const loginModeButton = document.getElementById('authLoginMode');
+const signupModeButton = document.getElementById('authSignupMode');
+const nameGroup = document.getElementById('authNameGroup');
+const nameInput = document.getElementById('authName');
 
 let currentUser = null;
 let mode = 'login';
 let callbackToken = null;
 let hasOauthProviders = false;
+let signupEnabled = false;
 
 const PROVIDER_LABELS = {
   google: 'Google',
@@ -62,9 +71,20 @@ function displayName(user) {
   return user?.user_metadata?.full_name || user?.name || user?.email || 'Account';
 }
 
+function initials(name) {
+  return name.trim().split(/\s+/).slice(0, 2).map(part => part[0]).join('').toUpperCase();
+}
+
 function renderAccountButton() {
-  accountButton.textContent = currentUser ? displayName(currentUser) : 'Log in';
+  const name = currentUser ? displayName(currentUser) : '';
+  accountAvatar.textContent = currentUser ? initials(name) : '';
+  if (!currentUser) {
+    accountAvatar.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"></circle><path d="M4 21a8 8 0 0 1 16 0"></path></svg>';
+  }
+  accountName.textContent = currentUser ? name : 'Account';
+  accountName.classList.toggle('hidden', !currentUser);
   accountButton.title = currentUser ? `Signed in as ${currentUser.email}` : 'Log in to Tube Tally';
+  accountButton.setAttribute('aria-label', currentUser ? `Account for ${name}` : 'Log in or sign up');
 }
 
 function renderOauthProviders(settings) {
@@ -83,7 +103,8 @@ function renderOauthProviders(settings) {
   }
 
   hasOauthProviders = providers.length > 0;
-  oauthSection.classList.toggle('hidden', !hasOauthProviders || mode !== 'login');
+  oauthSection.classList.toggle('hidden', !hasOauthProviders || !['login', 'signup'].includes(mode));
+  modeTabs.classList.toggle('hidden', !signupEnabled || !['login', 'signup'].includes(mode));
 }
 
 function setMode(nextMode) {
@@ -94,16 +115,24 @@ function setMode(nextMode) {
   form.classList.remove('hidden');
   const hidesEmail = nextMode === 'invite' || nextMode === 'reset';
   const hidesPassword = nextMode === 'recover';
+  const asksForName = nextMode === 'signup';
+  const showsModeTabs = signupEnabled && ['login', 'signup'].includes(nextMode);
+  nameGroup.classList.toggle('hidden', !asksForName);
+  nameInput.disabled = !asksForName;
   emailGroup.classList.toggle('hidden', hidesEmail);
   emailInput.disabled = hidesEmail;
   passwordGroup.classList.toggle('hidden', hidesPassword);
   passwordInput.disabled = hidesPassword;
   forgotButton.classList.toggle('hidden', nextMode !== 'login');
-  oauthSection.classList.toggle('hidden', !hasOauthProviders || nextMode !== 'login');
+  modeTabs.classList.toggle('hidden', !showsModeTabs);
+  loginModeButton.setAttribute('aria-selected', String(nextMode === 'login'));
+  signupModeButton.setAttribute('aria-selected', String(nextMode === 'signup'));
+  oauthSection.classList.toggle('hidden', !hasOauthProviders || !['login', 'signup'].includes(nextMode));
   logoutButton.classList.add('hidden');
 
   const content = {
-    login: ['Log in to Tube Tally', 'Use the email address connected to your invited account.', 'Log in'],
+    login: ['Log in to Tube Tally', 'Use your Tube Tally account to continue.', 'Log in'],
+    signup: ['Create your Tube Tally account', 'Create an account to save and share field reports.', 'Create account'],
     recover: ['Reset your password', 'We’ll email you a secure password-reset link.', 'Send reset link'],
     reset: ['Choose a new password', 'Enter a new password for your Tube Tally account.', 'Save password'],
     invite: ['Finish your Tube Tally account', 'Choose a password to accept your invitation.', 'Create account'],
@@ -156,6 +185,8 @@ async function processCallback() {
 }
 
 accountButton.addEventListener('click', openDialog);
+loginModeButton.addEventListener('click', () => setMode('login'));
+signupModeButton.addEventListener('click', () => setMode('signup'));
 forgotButton.addEventListener('click', (event) => {
   event.preventDefault();
   event.stopPropagation();
@@ -186,6 +217,12 @@ form.addEventListener('submit', async (event) => {
       currentUser = await login(emailInput.value.trim(), passwordInput.value);
       dialog.close();
       showNotice('Logged in');
+    } else if (mode === 'signup') {
+      currentUser = await signup(emailInput.value.trim(), passwordInput.value, {
+        full_name: nameInput.value.trim(),
+      });
+      dialog.close();
+      showNotice(currentUser.emailVerified ? 'Tube Tally account created' : 'Check your email to confirm your account');
     } else if (mode === 'recover') {
       await requestPasswordRecovery(emailInput.value.trim());
       dialog.close();
@@ -220,7 +257,9 @@ async function initializeAuth() {
   currentUser = (await getUser()) || currentUser;
   renderAccountButton();
   try {
-    renderOauthProviders(await getSettings());
+    const settings = await getSettings();
+    signupEnabled = !settings.disableSignup;
+    renderOauthProviders(settings);
   } catch (error) {
     console.warn('Unable to load enabled login providers', error);
   }
