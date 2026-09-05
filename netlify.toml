@@ -1,0 +1,3 @@
+[build]
+  command = "npm run gen:version"
+  publish = "src"
