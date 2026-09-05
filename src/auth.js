@@ -89,16 +89,19 @@ function displayName(user) {
 
 function mergeUser(existingUser, nextUser) {
   if (!nextUser) return null;
+  const definedUser = Object.fromEntries(
+    Object.entries(nextUser).filter(([, value]) => value !== undefined),
+  );
   return {
     ...(existingUser || {}),
-    ...nextUser,
+    ...definedUser,
     userMetadata: {
       ...(existingUser?.userMetadata || {}),
-      ...(nextUser.userMetadata || {}),
+      ...(definedUser.userMetadata || {}),
     },
     appMetadata: {
       ...(existingUser?.appMetadata || {}),
-      ...(nextUser.appMetadata || {}),
+      ...(definedUser.appMetadata || {}),
     },
   };
 }
