@@ -6,7 +6,7 @@ const ASSETS_TO_CACHE = [
   './manifest.json',
   './icon.svg',
   './version.json',
-  './auth.v2.1.bundle.js'
+  './auth.v2.2.bundle.js'
 ];
 
 self.addEventListener('install', (event) => {

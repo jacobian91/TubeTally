@@ -39,10 +39,16 @@ const loginModeButton = document.getElementById('authLoginMode');
 const signupModeButton = document.getElementById('authSignupMode');
 const nameGroup = document.getElementById('authNameGroup');
 const nameInput = document.getElementById('authName');
+const profilePanel = document.getElementById('authProfilePanel');
 const profileForm = document.getElementById('authProfileForm');
 const profileNameInput = document.getElementById('profileName');
 const profileEmailInput = document.getElementById('profileEmail');
 const profileSaveButton = document.getElementById('profileSave');
+const profileChangeEmailButton = document.getElementById('profileChangeEmail');
+const profileEmailForm = document.getElementById('profileEmailForm');
+const profileNewEmailInput = document.getElementById('profileNewEmail');
+const profileCancelEmailButton = document.getElementById('profileCancelEmail');
+const profileConfirmEmailButton = document.getElementById('profileConfirmEmail');
 const profileResetPasswordButton = document.getElementById('profileResetPassword');
 
 let currentUser = null;
@@ -118,7 +124,7 @@ function setMode(nextMode) {
   setError();
   form.reset();
   form.classList.remove('hidden');
-  profileForm.classList.add('hidden');
+  profilePanel.classList.add('hidden');
   const hidesEmail = nextMode === 'invite' || nextMode === 'reset';
   const hidesPassword = nextMode === 'recover';
   const asksForName = nextMode === 'signup';
@@ -150,11 +156,14 @@ function setMode(nextMode) {
 function showAccount() {
   setError();
   form.classList.add('hidden');
-  profileForm.classList.remove('hidden');
+  profilePanel.classList.remove('hidden');
+  profileEmailForm.classList.add('hidden');
+  profileChangeEmailButton.classList.remove('hidden');
+  profileNewEmailInput.value = '';
   profileNameInput.value = currentUser.name || currentUser.userMetadata?.full_name || '';
   profileEmailInput.value = currentUser.email;
   title.textContent = displayName(currentUser);
-  description.textContent = 'Manage your Tube Tally account.';
+  description.textContent = 'Manage your TubeTally account.';
   logoutButton.classList.remove('hidden');
 }
 
@@ -201,7 +210,6 @@ profileForm.addEventListener('submit', async (event) => {
   event.preventDefault();
   setError();
   const fullName = profileNameInput.value.trim();
-  const email = profileEmailInput.value.trim();
   if (!fullName) {
     setError('Enter your name.');
     return;
@@ -209,18 +217,53 @@ profileForm.addEventListener('submit', async (event) => {
 
   profileSaveButton.disabled = true;
   try {
-    const emailChanged = email.toLowerCase() !== currentUser.email.toLowerCase();
     currentUser = await updateUser({
       data: { ...(currentUser.userMetadata || {}), full_name: fullName },
-      ...(emailChanged ? { email } : {}),
     });
     renderAccountButton();
     showAccount();
-    showNotice(emailChanged ? 'Check your new email to confirm the change' : 'Account updated');
+    showNotice('Name updated');
   } catch (error) {
     setError(friendlyError(error));
   } finally {
     profileSaveButton.disabled = false;
+  }
+});
+
+profileChangeEmailButton.addEventListener('click', () => {
+  setError();
+  profileChangeEmailButton.classList.add('hidden');
+  profileEmailForm.classList.remove('hidden');
+  profileNewEmailInput.focus();
+});
+
+profileCancelEmailButton.addEventListener('click', () => {
+  setError();
+  profileEmailForm.reset();
+  profileEmailForm.classList.add('hidden');
+  profileChangeEmailButton.classList.remove('hidden');
+});
+
+profileEmailForm.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  setError();
+  const email = profileNewEmailInput.value.trim();
+  if (email.toLowerCase() === currentUser.email.toLowerCase()) {
+    setError('Enter a different email address.');
+    return;
+  }
+
+  profileConfirmEmailButton.disabled = true;
+  try {
+    await updateUser({ email });
+    profileEmailForm.reset();
+    profileEmailForm.classList.add('hidden');
+    profileChangeEmailButton.classList.remove('hidden');
+    showNotice('Check your new email to confirm the change');
+  } catch (error) {
+    setError(friendlyError(error));
+  } finally {
+    profileConfirmEmailButton.disabled = false;
   }
 });
 
