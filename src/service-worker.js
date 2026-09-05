@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tubetally-runtime-v5';
+const CACHE_NAME = 'tubetally-runtime-v6';
 const OFFLINE_URL = './index.html';
 const ASSETS_TO_CACHE = [
   './',
@@ -6,7 +6,7 @@ const ASSETS_TO_CACHE = [
   './manifest.json',
   './icon.svg',
   './version.json',
-  './auth.v2.6.bundle.js'
+  './auth.v2.7.bundle.js'
 ];
 
 self.addEventListener('install', (event) => {

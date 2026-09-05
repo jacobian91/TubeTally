@@ -205,7 +205,7 @@ async function processCallback() {
     const result = await handleAuthCallback();
     if (!result) return;
     callbackToken = result.token || null;
-    currentUser = result.user || currentUser;
+    currentUser = mergeUser(currentUser, result.user) || currentUser;
 
     if (result.type === 'invite') {
       setMode('invite');
@@ -385,7 +385,7 @@ onAuthChange((_event, user) => {
 
 async function initializeAuth() {
   await processCallback();
-  currentUser = (await getUser()) || currentUser;
+  currentUser = mergeUser(currentUser, await getUser()) || currentUser;
   renderAccountButton();
   try {
     const settings = await getSettings();
