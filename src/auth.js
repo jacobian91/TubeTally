@@ -137,10 +137,6 @@ logoutButton.addEventListener('click', async () => {
   }
 });
 
-dialog.addEventListener('click', (event) => {
-  if (event.target === dialog) dialog.close();
-});
-
 form.addEventListener('submit', async (event) => {
   event.preventDefault();
   setError();
