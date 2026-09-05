@@ -138,9 +138,7 @@ logoutButton.addEventListener('click', async () => {
 });
 
 dialog.addEventListener('click', (event) => {
-  const rect = dialog.getBoundingClientRect();
-  const inside = event.clientX >= rect.left && event.clientX <= rect.right && event.clientY >= rect.top && event.clientY <= rect.bottom;
-  if (!inside) dialog.close();
+  if (event.target === dialog) dialog.close();
 });
 
 form.addEventListener('submit', async (event) => {
