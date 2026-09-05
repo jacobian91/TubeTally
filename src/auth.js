@@ -89,8 +89,10 @@ function displayName(user) {
 }
 
 function currentUserEmail(user = currentUser) {
-  if (user?.email) knownEmail = user.email;
-  return user?.email || knownEmail;
+  const labelEmail = accountButton.title.match(/^Signed in as (.+)$/)?.[1] || '';
+  const email = user?.email || knownEmail || labelEmail;
+  if (email) knownEmail = email;
+  return email;
 }
 
 function mergeUser(existingUser, nextUser) {
