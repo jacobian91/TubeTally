@@ -126,7 +126,7 @@ function renderAccountButton() {
   accountInitials.textContent = currentUser ? initials(name) : '';
   accountName.textContent = currentUser ? name : 'Account';
   accountName.classList.toggle('hidden', !currentUser);
-  const email = currentUserEmail();
+  const email = accountButton.title.match(/^Signed in as (.+)$/)?.[1] || currentUserEmail();
   accountButton.title = currentUser && email ? `Signed in as ${email}` : 'Log in to Tube Tally';
   accountButton.setAttribute('aria-label', currentUser ? `Account for ${name}` : 'Log in or sign up');
 }
@@ -192,7 +192,7 @@ function showAccount() {
   profileEmailForm.classList.add('hidden');
   profileChangeEmailButton.classList.remove('hidden');
   profileNewEmailInput.value = '';
-  const email = currentUserEmail();
+  const email = accountButton.title.match(/^Signed in as (.+)$/)?.[1] || currentUserEmail();
   profileNameInput.value = displayName(currentUser) === email ? '' : displayName(currentUser);
   profileNameInput.readOnly = true;
   profileNameInput.classList.add('opacity-70');
