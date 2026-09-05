@@ -3,6 +3,14 @@
   "version": "1.6.0",
   "description": "TubeTally web app",
   "scripts": {
-    "gen:version": "node tools/gen-version.js"
+    "build:auth": "esbuild src/auth.js --bundle --minify --format=iife --outfile=src/auth.bundle.js",
+    "gen:version": "node tools/gen-version.js",
+    "build": "npm run build:auth && npm run gen:version"
+  },
+  "dependencies": {
+    "@netlify/identity": "^2.0.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2"
   }
 }
