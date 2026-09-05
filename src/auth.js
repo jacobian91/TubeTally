@@ -81,7 +81,23 @@ function setError(message = '') {
 }
 
 function displayName(user) {
-  return user?.user_metadata?.full_name || user?.name || user?.email || 'Account';
+  return user?.name || user?.userMetadata?.full_name || user?.email || 'Account';
+}
+
+function mergeUser(existingUser, nextUser) {
+  if (!nextUser) return null;
+  return {
+    ...(existingUser || {}),
+    ...nextUser,
+    userMetadata: {
+      ...(existingUser?.userMetadata || {}),
+      ...(nextUser.userMetadata || {}),
+    },
+    appMetadata: {
+      ...(existingUser?.appMetadata || {}),
+      ...(nextUser.appMetadata || {}),
+    },
+  };
 }
 
 function initials(name) {
@@ -160,8 +176,8 @@ function showAccount() {
   profileEmailForm.classList.add('hidden');
   profileChangeEmailButton.classList.remove('hidden');
   profileNewEmailInput.value = '';
-  profileNameInput.value = currentUser.name || currentUser.userMetadata?.full_name || '';
-  profileEmailInput.value = currentUser.email;
+  profileNameInput.value = displayName(currentUser) === currentUser.email ? '' : displayName(currentUser);
+  profileEmailInput.value = currentUser.email || '';
   title.textContent = displayName(currentUser);
   description.textContent = 'Manage your TubeTally account.';
   logoutButton.classList.remove('hidden');
@@ -217,9 +233,9 @@ profileForm.addEventListener('submit', async (event) => {
 
   profileSaveButton.disabled = true;
   try {
-    currentUser = await updateUser({
+    currentUser = mergeUser(currentUser, await updateUser({
       data: { ...(currentUser.userMetadata || {}), full_name: fullName },
-    });
+    }));
     renderAccountButton();
     showAccount();
     showNotice('Name updated');
@@ -339,7 +355,7 @@ form.addEventListener('submit', async (event) => {
 });
 
 onAuthChange((_event, user) => {
-  currentUser = user;
+  currentUser = mergeUser(currentUser, user);
   renderAccountButton();
 });
 
