@@ -22,6 +22,7 @@ let organizations = [];
 let pendingInvitations = [];
 let blockOrganizationInvites = false;
 let selectedOrganization = null;
+let activeInvitation = null;
 let refreshTimer = null;
 
 window.tubeTallyOrganizations = {
@@ -122,26 +123,37 @@ async function refreshOrganizations() {
 function showNextInvitation() {
   const invitation = pendingInvitations[0];
   if (!invitation || invitationDialog?.open) return;
+  activeInvitation = invitation;
   invitationMessage.textContent = `Join ${invitation.organization_name}? All fields saved there are shared with the organization.`;
   invitationDialog.showModal();
 }
 
 async function respondToInvitation(action) {
-  const invitation = pendingInvitations[0];
-  if (!invitation) return;
-  const response = await fetch(`/api/organization-invitations/${invitation.id}`, {
-    method: 'POST',
-    credentials: 'same-origin',
-    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-    body: JSON.stringify({ action }),
-  });
-  if (!response.ok) {
-    const body = await response.json().catch(() => ({}));
-    throw new Error(body.error || `Organization invitation failed (${response.status}).`);
+  const invitation = activeInvitation;
+  if (!invitation) throw new Error('This organization invitation is no longer available.');
+  const controls = [
+    document.getElementById('acceptOrganizationInvite'),
+    document.getElementById('declineOrganizationInvite'),
+  ].filter(Boolean);
+  controls.forEach(control => { control.disabled = true; });
+  try {
+    const response = await fetch(`/api/organization-invitations/${invitation.id}`, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ action }),
+    });
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      throw new Error(body.error || `Organization invitation failed (${response.status}).`);
+    }
+    activeInvitation = null;
+    invitationDialog.close();
+    notice(action === 'accept' ? `Joined ${invitation.organization_name}` : 'Invitation declined');
+    await refreshOrganizations();
+  } finally {
+    controls.forEach(control => { control.disabled = false; });
   }
-  invitationDialog.close();
-  notice(action === 'accept' ? `Joined ${invitation.organization_name}` : 'Invitation declined');
-  await refreshOrganizations();
 }
 
 async function cancelInvitation(invitationId) {
