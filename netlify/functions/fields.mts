@@ -1,6 +1,7 @@
 import { getDatabase } from '@netlify/database';
 import { getUser } from '@netlify/identity';
 import type { Config, Context } from '@netlify/functions';
+import { Buffer } from 'node:buffer';
 import {
   ValidationError,
   validateRunId,
@@ -11,6 +12,8 @@ const json = (body: unknown, status = 200) => Response.json(body, {
   status,
   headers: { 'Cache-Control': 'no-store' },
 });
+
+const encodeStatusData = (value: Uint8Array) => Buffer.from(value).toString('base64url');
 
 async function personalScope(client: any, identityUserId: string) {
   const existing = await client.query(
@@ -83,8 +86,8 @@ async function saveSnapshot(identityUserId: string, body: unknown) {
     await client.query(
       `INSERT INTO field_snapshots
          (scope_id, snapshot_id, run_id, snapshot_type, client_revision,
-          row_count, payload, expires_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb,
+          row_count, encoding_version, status_data, expires_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8,
          CASE WHEN $4 = 'autosave' THEN NOW() + INTERVAL '2 days' ELSE NULL END)
        ON CONFLICT (scope_id, snapshot_id) DO NOTHING`,
       [
@@ -94,7 +97,8 @@ async function saveSnapshot(identityUserId: string, body: unknown) {
         snapshot.snapshotType,
         snapshot.revision,
         snapshot.rowCount,
-        JSON.stringify(snapshot.payload),
+        snapshot.encodingVersion,
+        snapshot.statusData,
       ],
     );
 
@@ -150,7 +154,9 @@ async function listRuns(identityUserId: string) {
            run_id,
            snapshot_type,
            client_revision,
-           payload,
+           row_count,
+           encoding_version,
+           status_data,
            created_at,
            ROW_NUMBER() OVER (
              PARTITION BY run_id
@@ -167,10 +173,14 @@ async function listRuns(identityUserId: string) {
          r.run_id,
          r.field_id,
          r.field_name,
+         r.started_at_local,
+         r.completed_at_local,
          l.snapshot_id,
          l.snapshot_type,
          l.client_revision,
-         l.payload,
+         l.row_count,
+         l.encoding_version,
+         l.status_data,
          l.created_at
        FROM field_runs r
        JOIN latest l
@@ -181,13 +191,18 @@ async function listRuns(identityUserId: string) {
     );
 
     return result.rows.map((row: any) => ({
-      ...row.payload,
       id: row.run_id,
       runId: row.run_id,
       fieldId: row.field_id,
+      fieldName: row.field_name,
+      startedAt: row.started_at_local,
+      savedAt: row.completed_at_local || '',
       snapshotId: row.snapshot_id,
       snapshotType: row.snapshot_type,
       revision: row.client_revision,
+      rowCount: row.row_count,
+      encodingVersion: row.encoding_version,
+      statuses: encodeStatusData(row.status_data),
       cloudBacked: true,
       serverSavedAt: row.created_at,
     }));
@@ -208,7 +223,8 @@ async function getRunHistory(identityUserId: string, rawRunId: string) {
          snapshot_type,
          client_revision,
          row_count,
-         payload,
+         encoding_version,
+         status_data,
          created_at,
          expires_at
        FROM field_snapshots
@@ -218,7 +234,16 @@ async function getRunHistory(identityUserId: string, rawRunId: string) {
        ORDER BY created_at DESC, snapshot_id DESC`,
       [scopeId, runId],
     );
-    return result.rows;
+    return result.rows.map((row: any) => ({
+      snapshotId: row.snapshot_id,
+      snapshotType: row.snapshot_type,
+      revision: row.client_revision,
+      rowCount: row.row_count,
+      encodingVersion: row.encoding_version,
+      statuses: encodeStatusData(row.status_data),
+      createdAt: row.created_at,
+      expiresAt: row.expires_at,
+    }));
   } finally {
     client.release();
   }

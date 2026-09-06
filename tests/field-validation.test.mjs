@@ -24,7 +24,34 @@ test('accepts a complete manual snapshot', () => {
   const result = validateSnapshot(validSnapshot());
   assert.equal(result.rowCount, 3);
   assert.equal(result.fieldName, 'West 40');
-  assert.deepEqual(result.payload.rows, { 1: 'green', 2: 'red', 3: 'yellow' });
+  assert.deepEqual([...result.statusData], [0, 2, 1]);
+  assert.equal(result.encodingVersion, 1);
+});
+
+test('accepts the versioned one-byte wire encoding', () => {
+  const snapshot = validSnapshot();
+  snapshot.payload = {
+    fieldName: 'West 40',
+    startedAt: '2026-09-05 10:00',
+    savedAt: '2026-09-05 11:00',
+    encodingVersion: 1,
+    statuses: Buffer.from([0, 2, 1]).toString('base64url'),
+  };
+  const result = validateSnapshot(snapshot);
+  assert.equal(result.rowCount, 3);
+  assert.deepEqual([...result.statusData], [0, 2, 1]);
+});
+
+test('rejects unknown encoded enum values', () => {
+  const snapshot = validSnapshot();
+  snapshot.payload = {
+    fieldName: 'West 40',
+    startedAt: '',
+    savedAt: '',
+    encodingVersion: 1,
+    statuses: Buffer.from([0, 3, 2]).toString('base64url'),
+  };
+  assert.throws(() => validateSnapshot(snapshot), ValidationError);
 });
 
 test('allows unnamed autosaves but requires a name for manual saves', () => {

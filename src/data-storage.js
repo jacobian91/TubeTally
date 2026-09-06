@@ -1,3 +1,11 @@
+import {
+  ROW_ENCODING_VERSION,
+  decodeRows,
+  decodeSharePayload as decodeBinarySharePayload,
+  encodeRows,
+  encodeSharePayload as encodeBinarySharePayload,
+} from '../netlify/functions/_shared/row-codec.mjs';
+
 const DATABASE_NAME = 'tubetally-data';
 const DATABASE_VERSION = 1;
 const API_URL = '/api/fields';
@@ -5,6 +13,54 @@ const API_URL = '/api/fields';
 let databasePromise;
 let currentUser = null;
 let flushPromise = null;
+
+function bytesToBase64Url(bytes) {
+  let binary = '';
+  for (let offset = 0; offset < bytes.length; offset += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
+  }
+  return btoa(binary).replaceAll('+', '-').replaceAll('/', '_').replace(/=+$/, '');
+}
+
+function base64UrlToBytes(encoded) {
+  if (typeof encoded !== 'string' || !/^[A-Za-z0-9_-]*$/.test(encoded) || encoded.length % 4 === 1) {
+    throw new TypeError('Invalid encoded row data.');
+  }
+  const base64 = encoded.replaceAll('-', '+').replaceAll('_', '/');
+  const binary = atob(base64.padEnd(Math.ceil(base64.length / 4) * 4, '='));
+  return Uint8Array.from(binary, character => character.charCodeAt(0));
+}
+
+function compactSnapshot(snapshot) {
+  const payload = snapshot?.payload || {};
+  if (payload.encodingVersion === ROW_ENCODING_VERSION && typeof payload.statuses === 'string') {
+    return structuredClone(snapshot);
+  }
+  const statuses = bytesToBase64Url(encodeRows(payload.rows || {}, payload.currentRow));
+  return {
+    ...structuredClone(snapshot),
+    payload: {
+      fieldName: payload.fieldName || '',
+      startedAt: payload.startedAt || '',
+      savedAt: payload.savedAt || '',
+      encodingVersion: ROW_ENCODING_VERSION,
+      statuses,
+    },
+  };
+}
+
+function inflateRemoteField(field) {
+  if (field?.rows || field?.encodingVersion !== ROW_ENCODING_VERSION || typeof field?.statuses !== 'string') {
+    return field;
+  }
+  const statusBytes = base64UrlToBytes(field.statuses);
+  const { statuses: _statuses, encodingVersion: _encodingVersion, ...metadata } = field;
+  return {
+    ...metadata,
+    rows: decodeRows(statusBytes),
+    currentRow: statusBytes.length + 1,
+  };
+}
 
 function requestResult(request) {
   return new Promise((resolve, reject) => {
@@ -103,7 +159,7 @@ async function sendQueueItem(item) {
     : {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(item.snapshot),
+        body: JSON.stringify(compactSnapshot(item.snapshot)),
       };
   const url = item.operation === 'delete' ? `${API_URL}/${item.runId}` : API_URL;
   const response = await fetch(url, { ...request, credentials: 'same-origin' });
@@ -170,7 +226,7 @@ async function queueSnapshot(snapshot, localFieldId = null) {
     operation: 'snapshot',
     userId: currentUser.id,
     localFieldId,
-    snapshot: structuredClone(snapshot),
+    snapshot: compactSnapshot(snapshot),
     queuedAt: new Date().toISOString(),
   });
   setSyncState(navigator.onLine ? 'syncing' : 'offline', 1);
@@ -205,7 +261,7 @@ async function refreshRemoteFields() {
     });
     if (!response.ok) throw new Error(`Unable to load account fields (${response.status})`);
     const body = await response.json();
-    emit('tubetally:remote-fields', { fields: body.fields || [] });
+    emit('tubetally:remote-fields', { fields: (body.fields || []).map(inflateRemoteField) });
   } catch (error) {
     console.warn('Unable to refresh account fields', error);
   }
@@ -315,4 +371,10 @@ window.tubeTallyData = {
   flushQueue,
   getMetadata,
   setMetadata,
+  encodeSharePayload(data) {
+    return bytesToBase64Url(encodeBinarySharePayload(data));
+  },
+  decodeSharePayload(encoded) {
+    return decodeBinarySharePayload(base64UrlToBytes(encoded));
+  },
 };

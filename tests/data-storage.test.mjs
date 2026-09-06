@@ -48,6 +48,9 @@ test('queues authenticated snapshots and retries them after reconnecting', async
   await window.tubeTallyData.flushQueue();
   assert.equal(posts.length, 1);
   assert.equal('ownerUserId' in posts[0], false);
+  assert.equal(posts[0].payload.encodingVersion, 1);
+  assert.equal(posts[0].payload.statuses, 'AA');
+  assert.equal('rows' in posts[0].payload, false);
 
   navigator.onLine = false;
   await window.tubeTallyData.queueSnapshot({

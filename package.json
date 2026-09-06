@@ -4,10 +4,10 @@
   "description": "TubeTally web app",
   "scripts": {
     "build:auth": "esbuild src/auth.js --bundle --minify --format=iife --outfile=src/auth.v2.10.bundle.js",
-    "build:data": "esbuild src/data-storage.js --bundle --minify --format=iife --outfile=src/data-storage.v1.bundle.js",
+    "build:data": "esbuild src/data-storage.js --bundle --minify --format=iife --outfile=src/data-storage.v2.bundle.js",
     "gen:version": "node tools/gen-version.js",
     "test": "node --test tests/*.test.mjs",
-    "typecheck:functions": "tsc --noEmit --target ES2022 --module NodeNext --moduleResolution NodeNext --lib ES2022,DOM --allowJs --skipLibCheck netlify/functions/fields.mts netlify/functions/cleanup-autosaves.mts",
+    "typecheck:functions": "tsc --noEmit --target ES2022 --module NodeNext --moduleResolution NodeNext --lib ES2022,DOM --types node --allowJs --skipLibCheck netlify/functions/fields.mts netlify/functions/cleanup-autosaves.mts",
     "check:functions": "esbuild netlify/functions/fields.mts netlify/functions/cleanup-autosaves.mts --bundle --platform=node --format=esm --outdir=.netlify/function-check --external:@netlify/database --external:@netlify/identity --external:@netlify/functions",
     "build": "npm run build:auth && npm run build:data && npm run gen:version"
   },

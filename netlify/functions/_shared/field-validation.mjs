@@ -1,3 +1,10 @@
+import {
+  ROW_ENCODING_VERSION,
+  countEncodedRows,
+  encodeRows,
+} from './row-codec.mjs';
+import { Buffer } from 'node:buffer';
+
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const STATUSES = new Set(['green', 'red', 'yellow']);
 
@@ -50,22 +57,38 @@ export function validateSnapshot(input) {
   });
   const startedAt = shortText(payload.startedAt, 'startedAt', 100);
   const savedAt = shortText(payload.savedAt, 'savedAt', 100);
-  const rows = payload.rows;
-  if (!rows || typeof rows !== 'object' || Array.isArray(rows)) {
-    throw new ValidationError('rows must be an object.');
-  }
-
-  const cleanRows = {};
-  for (const [rowNumber, status] of Object.entries(rows)) {
-    if (!/^[1-9]\d*$/.test(rowNumber) || !STATUSES.has(status)) {
-      throw new ValidationError('Each row must have a positive number and a valid status.');
+  let statusData;
+  let rowCount;
+  if (payload.encodingVersion === ROW_ENCODING_VERSION && typeof payload.statuses === 'string') {
+    if (!/^[A-Za-z0-9_-]*$/.test(payload.statuses) || payload.statuses.length % 4 === 1) {
+      throw new ValidationError('statuses must be valid base64url data.');
     }
-    cleanRows[rowNumber] = status;
-  }
+    statusData = Buffer.from(payload.statuses, 'base64url');
+    try {
+      rowCount = countEncodedRows(statusData);
+    } catch {
+      throw new ValidationError('statuses contains an unknown enum value.');
+    }
+  } else {
+    const rows = payload.rows;
+    if (!rows || typeof rows !== 'object' || Array.isArray(rows)) {
+      throw new ValidationError('rows must be an object or versioned encoded statuses.');
+    }
 
-  const currentRow = Number(payload.currentRow);
-  if (!Number.isSafeInteger(currentRow) || currentRow < 1) {
-    throw new ValidationError('currentRow must be a positive integer.');
+    const cleanRows = {};
+    for (const [rowNumber, status] of Object.entries(rows)) {
+      if (!/^[1-9]\d*$/.test(rowNumber) || !STATUSES.has(status)) {
+        throw new ValidationError('Each row must have a positive number and a valid status.');
+      }
+      cleanRows[rowNumber] = status;
+    }
+
+    const currentRow = Number(payload.currentRow);
+    if (!Number.isSafeInteger(currentRow) || currentRow < 1) {
+      throw new ValidationError('currentRow must be a positive integer.');
+    }
+    statusData = Buffer.from(encodeRows(cleanRows, currentRow));
+    rowCount = Object.keys(cleanRows).length;
   }
 
   return {
@@ -77,14 +100,9 @@ export function validateSnapshot(input) {
     normalizedFieldName: fieldName ? normalizeFieldName(fieldName) : '',
     startedAt,
     savedAt,
-    rowCount: Object.keys(cleanRows).length,
-    payload: {
-      fieldName,
-      startedAt,
-      savedAt,
-      rows: cleanRows,
-      currentRow,
-    },
+    rowCount,
+    encodingVersion: ROW_ENCODING_VERSION,
+    statusData,
   };
 }
 

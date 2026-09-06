@@ -619,7 +619,7 @@
   <!-- Toast (non-blocking) -->
   <div id="toast" role="status" aria-live="polite">Copied to clipboard</div>
 
-  <script src="./data-storage.v1.bundle.js"></script>
+  <script src="./data-storage.v2.bundle.js"></script>
   <script src="./auth.v2.10.bundle.js" defer></script>
   <script>
     const STORAGE_KEY = 'tubetally.v1';
@@ -1364,19 +1364,7 @@
       return `${header}\n\n${body}`;
     }
 
-    function compressData(rows) {
-      // Convert rows object to compact string: "1:G,2:R,3:Y" format (green/red/yellow)
-      const parts = [];
-      for (let i = 1; i < state.currentRow; i++) {
-        if (rows[i]) {
-          const status = rows[i];
-          const char = status === 'green' ? 'G' : status === 'red' ? 'R' : 'Y';
-          parts.push(`${i}:${char}`);
-        }
-      }
-      return parts.join(',');
-    }
-
+    // Kept so links created before the byte encoding rollout continue to open.
     function decompressData(compressed) {
       const rows = {};
       if (!compressed) return rows;
@@ -1391,13 +1379,14 @@
     }
 
     function buildShareUrl(data = state) {
-      // Compress data: field name and compressed rows
-      const compressed = compressData(data.rows || {});
-      const payload = `${data.fieldName || 'Field'}|${data.startedAt || ''}|${compressed}`;
-      const encoded = btoa(payload).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
-      // Generate full URL with hash, works for both file:// and http(s)://
-      const currentUrl = window.location.href.split('#')[0]; // Remove any existing hash
-      return `${currentUrl}#d=${encoded}`;
+      const encoded = window.tubeTallyData.encodeSharePayload({
+        fieldName: data.fieldName || '',
+        startedAt: data.startedAt || '',
+        rows: data.rows || {},
+        currentRow: data.currentRow || nextRowFromRows(data.rows),
+      });
+      const currentUrl = window.location.href.split('#')[0];
+      return `${currentUrl}#d=1.${encoded}`;
     }
 
     function loadFromShareUrl() {
@@ -1406,25 +1395,25 @@
       if (!fullHash || !fullHash.includes('d=')) return false;
       
       try {
-        // Extract the hash portion after #
         let encoded = fullHash.substring(fullHash.indexOf('d=') + 2);
-        console.log('Encoded:', encoded);
-        
-        // Restore padding for base64
-        encoded = encoded.replace(/-/g, '+').replace(/_/g, '/');
-        // Add padding as needed
-        while (encoded.length % 4) encoded += '=';
-        console.log('After padding:', encoded);
-        
-        const data = atob(encoded);
-        console.log('Decoded data:', data);
-        
-        const parts = data.split('|');
-        const fieldName = parts[0];
-        const startedAt = parts[1];
-        const compressed = parts[2];
-        
-        console.log('Parsed:', { fieldName, startedAt, compressed });
+        let fieldName;
+        let startedAt;
+        let rows;
+        let currentRow;
+
+        if (encoded.startsWith('1.')) {
+          const decoded = window.tubeTallyData.decodeSharePayload(encoded.substring(2));
+          ({ fieldName, startedAt, rows, currentRow } = decoded);
+        } else {
+          // Legacy links used pipe-delimited text containing "row:G" entries.
+          encoded = encoded.replace(/-/g, '+').replace(/_/g, '/');
+          while (encoded.length % 4) encoded += '=';
+          const parts = atob(encoded).split('|');
+          fieldName = parts[0];
+          startedAt = parts[1];
+          rows = decompressData(parts[2]);
+          currentRow = Math.max(...Object.keys(rows).map(Number), 0) + 1 || 1;
+        }
         
         if (fieldName !== undefined) {
           state.runId = newId();
@@ -1432,9 +1421,8 @@
           state.dirtyChanges = 0;
           state.fieldName = fieldName === 'Field' ? '' : fieldName;
           state.startedAt = startedAt || nowLocalISO();
-          state.rows = decompressData(compressed);
-          state.currentRow = Math.max(...Object.keys(state.rows).map(Number), 0) + 1 || 1;
-          console.log('Loaded state:', state);
+          state.rows = rows;
+          state.currentRow = currentRow;
           viewMode = true; // Enable view mode for shared URLs
           viewModeSource = 'share';
           viewingSavedFieldId = null;
