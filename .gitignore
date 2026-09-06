@@ -1,2 +1,4 @@
 node_modules/
 src/auth*.bundle.js
+src/data-storage*.bundle.js
+.netlify/

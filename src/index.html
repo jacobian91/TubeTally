@@ -299,6 +299,7 @@
           <span class="hidden sm:inline">New</span>
         </button>
         <button id="settingsBtn" class="icon-btn" data-surface title="Settings" aria-label="Settings">Settings</button>
+        <span id="syncStatus" class="hidden text-[0.7rem] font-semibold opacity-70" role="status" aria-live="polite">Local only</span>
         <button id="accountBtn" class="icon-btn !p-1.5" data-surface title="Log in to Tube Tally" aria-label="Tube Tally account">
           <span id="accountAvatar" class="account-avatar" aria-hidden="true">
             <svg id="accountIcon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -487,7 +488,7 @@
       <div class="flex items-start justify-between gap-3">
         <div>
           <div class="text-lg font-bold leading-tight">Saved Fields</div>
-          <p class="text-[0.75rem] opacity-60">Saved fields stay on this device.</p>
+          <p id="savedFieldsStorageNote" class="text-[0.75rem] opacity-60">Saved fields stay on this device.</p>
         </div>
       </div>
           <button id="saveFieldBtn" class="icon-btn bg-[color:var(--green)] text-white text-sm font-bold flex items-center gap-2">
@@ -498,6 +499,7 @@
             </svg>
             <span>Save current field</span>
           </button>
+      <button id="syncLocalFieldsBtn" class="hidden icon-btn justify-center" data-surface type="button">Upload local fields</button>
       <div id="savedFieldActions" class="hidden">
         <button id="editSavedFieldBtn" class="icon-btn w-full bg-purple-600 text-white font-bold text-sm">Resume editing</button>
       </div>
@@ -507,11 +509,26 @@
     </div>
   </dialog>
 
+  <!-- Existing local fields can be selectively added to the signed-in account. -->
+  <dialog id="uploadLocalFieldsDialog" class="rounded-2xl p-0 w-[30rem] max-w-[95vw]">
+    <form id="uploadLocalFieldsForm" class="p-5 space-y-4">
+      <div>
+        <div class="text-lg font-bold">Upload saved fields?</div>
+        <p class="text-sm opacity-70">Choose which fields to add to your TubeTally account. They will also remain on this phone.</p>
+      </div>
+      <div id="uploadLocalFieldsList" class="card p-3 space-y-2 max-h-[45vh] overflow-y-auto"></div>
+      <div class="flex gap-2 justify-end">
+        <button id="uploadLocalFieldsCancel" type="button" class="icon-btn" data-surface>Not now</button>
+        <button type="submit" class="icon-btn bg-[color:var(--green)] text-white font-bold">Upload selected</button>
+      </div>
+    </form>
+  </dialog>
+
   <!-- Saved field delete confirmation -->
   <dialog id="savedFieldDeleteDialog" class="rounded-2xl p-0 w-[24rem] max-w-[95vw]">
     <form method="dialog" class="p-5 space-y-4">
       <div class="text-lg font-bold">Remove saved field?</div>
-      <p class="text-sm opacity-70">This will permanently remove <span id="savedFieldDeleteLabel" class="font-semibold">this field</span> from this device.</p>
+      <p class="text-sm opacity-70">This will remove <span id="savedFieldDeleteLabel" class="font-semibold">this field</span> from this device and, if synced, your account.</p>
       <div class="flex gap-2 justify-end">
         <button type="button" class="icon-btn" data-surface onclick="savedFieldDeleteDialog.close()">Cancel</button>
         <button type="submit" class="icon-btn bg-red-600 text-white" value="confirm">Remove</button>
@@ -602,12 +619,14 @@
   <!-- Toast (non-blocking) -->
   <div id="toast" role="status" aria-live="polite">Copied to clipboard</div>
 
+  <script src="./data-storage.v2.bundle.js"></script>
   <script src="./auth.v2.10.bundle.js" defer></script>
   <script>
     const STORAGE_KEY = 'tubetally.v1';
     window.deferredPrompt = null;
     const SAVED_FIELDS_KEY = 'tubetally.savedFields.v1';
-    const MAX_SAVED_FIELDS = 50;
+    const MAX_LOCALSTORAGE_FIELD_CACHE = 50;
+    const AUTOSAVE_CHANGE_THRESHOLD = 50;
     const $ = s => document.querySelector(s);
     
     // Status mapping: internal codes (color names) map to display labels
@@ -629,7 +648,24 @@
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') updateWakeLock(); });
 
     // ---------- State ----------
-    const initial = { fieldName: '', startedAt: '', currentRow: 1, rows: {}, actions: [], prefs: { haptic: true, beep: true, wake: true, dark: false, leftHanded: false } };
+    const newId = () => crypto.randomUUID();
+    const initial = { fieldName: '', startedAt: '', currentRow: 1, rows: {}, actions: [], runId: '', revision: 0, dirtyChanges: 0, prefs: { haptic: true, beep: true, wake: true, dark: false, leftHanded: false } };
+    function freshState(prefs = initial.prefs) {
+      return { ...initial, runId: newId(), startedAt: nowLocalISO(), prefs: { ...prefs }, rows: {}, actions: [] };
+    }
+    function hydrateState(value) {
+      const base = freshState(value?.prefs || initial.prefs);
+      return {
+        ...base,
+        ...(value || {}),
+        runId: value?.runId || newId(),
+        revision: Number.isSafeInteger(value?.revision) ? value.revision : 0,
+        dirtyChanges: Number.isSafeInteger(value?.dirtyChanges) ? value.dirtyChanges : 0,
+        rows: { ...(value?.rows || {}) },
+        actions: Array.isArray(value?.actions) ? [...value.actions] : [],
+        prefs: { ...base.prefs, ...(value?.prefs || {}) }
+      };
+    }
     let state = load();
     let viewMode = false; // true = view-only shared mode, false = normal edit mode
     let viewModeSource = null; // 'share' | 'savedField' | null
@@ -649,12 +685,175 @@
     let installStatusState = 'unavailable';
     let confirmDialogEl = null;
     let confirmDialogResolver = null;
-    function load() { try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || { ...initial, startedAt: nowLocalISO() }; } catch { return { ...initial, startedAt: nowLocalISO() }; } }
-    function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+    let syncUser = null;
+    function load() { try { return hydrateState(JSON.parse(localStorage.getItem(STORAGE_KEY))); } catch { return freshState(); } }
+    function save() {
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch { }
+      void window.tubeTallyData?.saveActiveDraft(state);
+    }
 
     // ---------- Saved fields storage ----------
     function loadSavedFields() { try { return JSON.parse(localStorage.getItem(SAVED_FIELDS_KEY)) || []; } catch { return []; } }
-    function persistSavedFields() { try { localStorage.setItem(SAVED_FIELDS_KEY, JSON.stringify(savedFields)); } catch { } }
+    function persistSavedFields() {
+      const deviceFields = savedFields.filter(field => !field.accountUserId);
+      try { localStorage.setItem(SAVED_FIELDS_KEY, JSON.stringify(deviceFields.slice(0, MAX_LOCALSTORAGE_FIELD_CACHE))); } catch { }
+      for (const field of savedFields) void window.tubeTallyData?.saveLocalField(field);
+    }
+
+    function fieldRunId(field) {
+      return field?.runId || (/^[0-9a-f-]{36}$/i.test(field?.id || '') ? field.id : null);
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+    }
+
+    function snapshotPayload(source, savedAt = '') {
+      return {
+        fieldName: source.fieldName || '',
+        startedAt: source.startedAt || '',
+        savedAt: savedAt || source.savedAt || '',
+        rows: { ...(source.rows || {}) },
+        currentRow: source.currentRow || nextRowFromRows(source.rows)
+      };
+    }
+
+    function queueFieldSnapshot(snapshotType, source, localFieldId = null) {
+      if (!syncUser || !window.tubeTallyData) return Promise.resolve(false);
+      const runId = fieldRunId(source) || newId();
+      source.runId = runId;
+      const snapshot = {
+        snapshotId: newId(),
+        runId,
+        snapshotType,
+        revision: Number.isSafeInteger(source.revision) ? source.revision : 0,
+        payload: snapshotPayload(source, snapshotType === 'manual' ? (source.savedAt || nowLocalISO()) : '')
+      };
+      return window.tubeTallyData.queueSnapshot(snapshot, localFieldId);
+    }
+
+    function markFieldMutation() {
+      state.revision = (state.revision || 0) + 1;
+      state.dirtyChanges = (state.dirtyChanges || 0) + 1;
+      const shouldAutosave = state.dirtyChanges >= AUTOSAVE_CHANGE_THRESHOLD
+        && Object.keys(state.rows || {}).length > 0;
+      if (shouldAutosave) state.dirtyChanges = 0;
+      save();
+      if (shouldAutosave) void queueFieldSnapshot('autosave', state);
+    }
+
+    function mergeRemoteFields(remoteFields = [], cached = false) {
+      const currentAccountId = syncUser?.id;
+      if (!cached && currentAccountId) {
+        const remoteRunIds = new Set(remoteFields.map(fieldRunId).filter(Boolean));
+        const staleAccountFields = savedFields.filter(field => field.accountUserId === currentAccountId
+          && !remoteRunIds.has(fieldRunId(field)));
+        for (const field of staleAccountFields) void window.tubeTallyData?.deleteLocalField(field.id);
+        savedFields = savedFields.filter(field => field.accountUserId !== currentAccountId
+          || remoteRunIds.has(fieldRunId(field)));
+      }
+      for (const remote of remoteFields) {
+        const runId = fieldRunId(remote);
+        if (!runId) continue;
+        const existingIndex = savedFields.findIndex(field => fieldRunId(field) === runId);
+        if (existingIndex >= 0 && savedFields[existingIndex].syncPending) continue;
+        const existing = existingIndex >= 0 ? savedFields[existingIndex] : null;
+        const merged = {
+          ...remote,
+          id: existing?.id || remote.id || runId,
+          runId,
+          cloudBacked: true,
+          syncPending: false,
+          syncedUserId: existing && !existing.accountUserId ? currentAccountId : existing?.syncedUserId,
+          accountUserId: existing && !existing.accountUserId ? undefined : (currentAccountId || remote.accountUserId)
+        };
+        if (existingIndex >= 0) savedFields.splice(existingIndex, 1, merged);
+        else savedFields.push(merged);
+      }
+      savedFields.sort((a, b) => String(b.serverSavedAt || b.savedAt || '').localeCompare(String(a.serverSavedAt || a.savedAt || '')));
+      persistSavedFields();
+      renderSavedFieldsList();
+      updateCloudUi();
+    }
+
+    function unsyncedLocalFields() {
+      return savedFields.filter(field => !field.accountUserId
+        && field.syncedUserId !== syncUser?.id
+        && !field.syncPending
+        && Object.keys(field.rows || {}).length);
+    }
+
+    function updateCloudUi() {
+      const note = document.getElementById('savedFieldsStorageNote');
+      if (note) note.textContent = syncUser
+        ? 'Saved fields are available on this phone and in your account.'
+        : 'Saved fields stay on this device.';
+      const uploadButton = document.getElementById('syncLocalFieldsBtn');
+      if (uploadButton) uploadButton.classList.toggle('hidden', !syncUser || !unsyncedLocalFields().length);
+    }
+
+    function openUploadLocalFieldsDialog() {
+      const fields = unsyncedLocalFields();
+      const dialog = document.getElementById('uploadLocalFieldsDialog');
+      const list = document.getElementById('uploadLocalFieldsList');
+      if (!dialog || !list || !fields.length) return;
+      list.replaceChildren();
+      for (const field of fields) {
+        const label = document.createElement('label');
+        label.className = 'flex items-center gap-3 rounded-xl border border-gray-200 dark:border-gray-700 p-3';
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.name = 'localField';
+        checkbox.value = field.id;
+        checkbox.checked = true;
+        checkbox.className = 'w-5 h-5';
+        const text = document.createElement('span');
+        text.className = 'min-w-0';
+        const name = document.createElement('span');
+        name.className = 'block font-semibold truncate';
+        name.textContent = field.fieldName || 'Untitled field';
+        const date = document.createElement('span');
+        date.className = 'block text-xs opacity-65';
+        date.textContent = field.savedAt || field.startedAt || '';
+        text.append(name, date);
+        label.append(checkbox, text);
+        list.appendChild(label);
+      }
+      dialog.showModal();
+    }
+
+    async function maybeOfferLocalUpload() {
+      if (!syncUser || !unsyncedLocalFields().length) return;
+      const key = `upload-prompt:${syncUser.id}`;
+      const alreadyOffered = await window.tubeTallyData?.getMetadata(key);
+      if (alreadyOffered) return;
+      await window.tubeTallyData?.setMetadata(key, true);
+      openUploadLocalFieldsDialog();
+    }
+
+    async function uploadSelectedLocalFields(event) {
+      event.preventDefault();
+      const form = event.currentTarget;
+      const selectedIds = new Set(new FormData(form).getAll('localField'));
+      const selected = savedFields.filter(field => selectedIds.has(field.id));
+      for (const field of selected) {
+        field.runId = fieldRunId(field) || newId();
+        field.revision = Number.isSafeInteger(field.revision) ? field.revision : 0;
+        field.syncPending = true;
+        await window.tubeTallyData?.saveLocalField(field);
+        await queueFieldSnapshot('manual', field, field.id);
+      }
+      persistSavedFields();
+      form.closest('dialog')?.close();
+      renderSavedFieldsList();
+      updateCloudUi();
+      showToast(selected.length ? `${selected.length} field${selected.length === 1 ? '' : 's'} queued for upload` : 'No fields selected');
+    }
 
     const INSTALL_STATUS_MESSAGES = {
       checking: 'Checking install support…',
@@ -767,6 +966,7 @@
 
       // Update visibility based on view mode
       updateViewMode();
+      updateCloudUi();
 
       layout();
     }
@@ -800,14 +1000,25 @@
         if (activeId === field.id || editingId === field.id) item.classList.add('active');
         item.dataset.id = field.id;
         const savedText = field.savedAt ? `Saved ${field.savedAt}` : 'Saved field';
-        const statusLabel = activeId === field.id ? 'Viewing' : editingId === field.id ? 'Editing' : savedText;
+        const storageStatus = field.syncPending
+          ? 'Waiting to sync'
+          : field.snapshotType === 'autosave'
+            ? 'Autosaved to account'
+            : field.cloudBacked
+              ? 'Saved to account'
+              : savedText;
+        const statusLabel = activeId === field.id ? 'Viewing' : editingId === field.id ? 'Editing' : storageStatus;
+        const safeFieldName = escapeHtml(field.fieldName || 'Untitled field');
+        const safeStartedAt = escapeHtml(field.startedAt || '-');
+        const safeStatusLabel = escapeHtml(statusLabel);
+        const safeId = escapeHtml(field.id);
         item.innerHTML = `
           <div class="flex items-start justify-between gap-2">
             <div>
-              <div class="font-semibold leading-tight">${field.fieldName || 'Untitled field'}</div>
-              <div class="text-xs opacity-70">${field.startedAt || '-'}</div>
+              <div class="font-semibold leading-tight">${safeFieldName}</div>
+              <div class="text-xs opacity-70">${safeStartedAt}</div>
             </div>
-            <button type="button" class="icon-btn action-btn action-remove" title="Remove field" aria-label="Remove field" data-action="delete" data-id="${field.id}">
+            <button type="button" class="icon-btn action-btn action-remove" title="Remove field" aria-label="Remove field" data-action="delete" data-id="${safeId}">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <polyline points="3 6 5 6 21 6"></polyline>
                 <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path>
@@ -824,7 +1035,7 @@
             <span class="stat-badge bg-[color:var(--red)] text-white">S ${String(counts.red || 0).padStart(3, '\u00A0')}</span>
           </div>
           <div class="flex flex-wrap items-center gap-2 text-xs mt-2">
-            <button type="button" class="icon-btn action-btn action-load flex items-center gap-1" title="Load field" aria-label="Load field" data-action="load" data-id="${field.id}">
+            <button type="button" class="icon-btn action-btn action-load flex items-center gap-1" title="Load field" aria-label="Load field" data-action="load" data-id="${safeId}">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                 <path d="M7 10l5 5 5-5"></path>
@@ -832,7 +1043,7 @@
               </svg>
               <span>Load</span>
             </button>
-            <button type="button" class="icon-btn action-btn action-share flex items-center gap-1" data-action="share" data-id="${field.id}">
+            <button type="button" class="icon-btn action-btn action-share flex items-center gap-1" data-action="share" data-id="${safeId}">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <circle cx="18" cy="5" r="3"></circle>
                 <circle cx="6" cy="12" r="3"></circle>
@@ -843,7 +1054,7 @@
               <span>Share</span>
             </button>
           </div>
-          <div class="text-[0.7rem] opacity-60 mt-1">${statusLabel}</div>
+          <div class="text-[0.7rem] opacity-60 mt-1">${safeStatusLabel}</div>
         `;
         list.appendChild(item);
       }
@@ -956,18 +1167,25 @@
         return;
       }
       const editingId = currentlyEditingSavedFieldId;
+      const existing = editingId ? savedFields.find(field => field.id === editingId) : null;
+      const runId = state.runId || fieldRunId(existing) || newId();
       const snapshot = {
-        id: editingId || `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        id: editingId || runId,
+        runId,
         fieldName: state.fieldName || `Field ${savedFields.length + 1}`,
         startedAt: state.startedAt || nowLocalISO(),
         savedAt: nowLocalISO(),
         rows: { ...state.rows },
-        currentRow: state.currentRow
+        currentRow: state.currentRow,
+        revision: state.revision || 0,
+        cloudBacked: !!existing?.cloudBacked,
+        syncedUserId: existing?.syncedUserId,
+        syncPending: !!syncUser
       };
       savedFields = savedFields.filter(f => f.id !== snapshot.id);
       savedFields.unshift(snapshot);
-      if (savedFields.length > MAX_SAVED_FIELDS) savedFields = savedFields.slice(0, MAX_SAVED_FIELDS);
       persistSavedFields();
+      void queueFieldSnapshot('manual', snapshot, snapshot.id);
       renderSavedFieldsList();
       showToast(editingId ? 'Field updated' : 'Field saved');
       currentlyEditingSavedFieldId = null;
@@ -980,6 +1198,8 @@
       const removed = savedFields[idx];
       savedFields.splice(idx, 1);
       persistSavedFields();
+      void window.tubeTallyData?.deleteLocalField(removed.id);
+      if (removed.cloudBacked || removed.syncPending) void window.tubeTallyData?.queueDelete(fieldRunId(removed));
       if (viewMode && viewModeSource === 'savedField' && viewingSavedFieldId === id) {
         toggleViewMode();
       } else {
@@ -1012,11 +1232,14 @@
       const prefsSource = savedFieldReturnState ? savedFieldReturnState.prefs : state.prefs;
       state = {
         ...initial,
+        runId: fieldRunId(entry) || newId(),
         fieldName: entry.fieldName || '',
         startedAt: entry.startedAt || '',
         rows: { ...entry.rows },
         actions: [],
         currentRow: entry.currentRow || nextRowFromRows(entry.rows),
+        revision: entry.revision || 0,
+        dirtyChanges: 0,
         prefs: { ...prefsSource }
       };
       viewMode = true;
@@ -1103,7 +1326,7 @@
       state.rows[state.currentRow] = status;
       state.actions.push(state.currentRow);
       state.currentRow++;
-      save();
+      markFieldMutation();
       render(true);
     }
     function undo() {
@@ -1118,7 +1341,7 @@
       if (state.prefs.beep && audioCtx) beep(250, 110);
       delete state.rows[last];
       state.currentRow = last;
-      save();
+      markFieldMutation();
       render(true);
     }
 
@@ -1141,19 +1364,7 @@
       return `${header}\n\n${body}`;
     }
 
-    function compressData(rows) {
-      // Convert rows object to compact string: "1:G,2:R,3:Y" format (green/red/yellow)
-      const parts = [];
-      for (let i = 1; i < state.currentRow; i++) {
-        if (rows[i]) {
-          const status = rows[i];
-          const char = status === 'green' ? 'G' : status === 'red' ? 'R' : 'Y';
-          parts.push(`${i}:${char}`);
-        }
-      }
-      return parts.join(',');
-    }
-
+    // Kept so links created before the byte encoding rollout continue to open.
     function decompressData(compressed) {
       const rows = {};
       if (!compressed) return rows;
@@ -1168,13 +1379,14 @@
     }
 
     function buildShareUrl(data = state) {
-      // Compress data: field name and compressed rows
-      const compressed = compressData(data.rows || {});
-      const payload = `${data.fieldName || 'Field'}|${data.startedAt || ''}|${compressed}`;
-      const encoded = btoa(payload).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
-      // Generate full URL with hash, works for both file:// and http(s)://
-      const currentUrl = window.location.href.split('#')[0]; // Remove any existing hash
-      return `${currentUrl}#d=${encoded}`;
+      const encoded = window.tubeTallyData.encodeSharePayload({
+        fieldName: data.fieldName || '',
+        startedAt: data.startedAt || '',
+        rows: data.rows || {},
+        currentRow: data.currentRow || nextRowFromRows(data.rows),
+      });
+      const currentUrl = window.location.href.split('#')[0];
+      return `${currentUrl}#d=1.${encoded}`;
     }
 
     function loadFromShareUrl() {
@@ -1183,32 +1395,34 @@
       if (!fullHash || !fullHash.includes('d=')) return false;
       
       try {
-        // Extract the hash portion after #
         let encoded = fullHash.substring(fullHash.indexOf('d=') + 2);
-        console.log('Encoded:', encoded);
-        
-        // Restore padding for base64
-        encoded = encoded.replace(/-/g, '+').replace(/_/g, '/');
-        // Add padding as needed
-        while (encoded.length % 4) encoded += '=';
-        console.log('After padding:', encoded);
-        
-        const data = atob(encoded);
-        console.log('Decoded data:', data);
-        
-        const parts = data.split('|');
-        const fieldName = parts[0];
-        const startedAt = parts[1];
-        const compressed = parts[2];
-        
-        console.log('Parsed:', { fieldName, startedAt, compressed });
+        let fieldName;
+        let startedAt;
+        let rows;
+        let currentRow;
+
+        if (encoded.startsWith('1.')) {
+          const decoded = window.tubeTallyData.decodeSharePayload(encoded.substring(2));
+          ({ fieldName, startedAt, rows, currentRow } = decoded);
+        } else {
+          // Legacy links used pipe-delimited text containing "row:G" entries.
+          encoded = encoded.replace(/-/g, '+').replace(/_/g, '/');
+          while (encoded.length % 4) encoded += '=';
+          const parts = atob(encoded).split('|');
+          fieldName = parts[0];
+          startedAt = parts[1];
+          rows = decompressData(parts[2]);
+          currentRow = Math.max(...Object.keys(rows).map(Number), 0) + 1 || 1;
+        }
         
         if (fieldName !== undefined) {
+          state.runId = newId();
+          state.revision = 0;
+          state.dirtyChanges = 0;
           state.fieldName = fieldName === 'Field' ? '' : fieldName;
           state.startedAt = startedAt || nowLocalISO();
-          state.rows = decompressData(compressed);
-          state.currentRow = Math.max(...Object.keys(state.rows).map(Number), 0) + 1 || 1;
-          console.log('Loaded state:', state);
+          state.rows = rows;
+          state.currentRow = currentRow;
           viewMode = true; // Enable view mode for shared URLs
           viewModeSource = 'share';
           viewingSavedFieldId = null;
@@ -1251,7 +1465,7 @@
       savedFieldReturnState = null;
       savedFieldReturnMeta = null;
       currentlyEditingSavedFieldId = null;
-      state = { ...initial, fieldName: '', startedAt: nowLocalISO(), prefs: prefsCopy, rows: {}, actions: [] };
+      state = freshState(prefsCopy);
       try { localStorage.removeItem(STORAGE_KEY); } catch { }
       save();
       render();
@@ -1259,7 +1473,7 @@
     async function clearAllData() {
       const confirmed = await showConfirmDialog({
         title: 'Clear all data?',
-        body: 'This removes all saved fields, preferences, cached versions, and reloads the app.',
+        body: 'This removes fields, preferences, and cached versions from this device. Data already synced to your account stays online.',
         confirmLabel: 'Clear everything',
         confirmColorClass: 'bg-red-700 text-white'
       });
@@ -1268,6 +1482,7 @@
       for (const k of keys) {
         try { localStorage.removeItem(k); } catch { }
       }
+      try { await window.tubeTallyData?.clearDeviceData(); } catch { }
       try {
         const registrations = await navigator.serviceWorker?.getRegistrations?.();
         if (registrations?.length) {
@@ -1294,7 +1509,7 @@
       if (viewMode) return;
       if (changeRowDialogData.rowNum === null) return;
       state.rows[changeRowDialogData.rowNum] = newStatus;
-      save();
+      markFieldMutation();
       render(false);
       document.getElementById('changeRowDialog').close();
     }
@@ -1320,6 +1535,14 @@
 
     const saveFieldBtnEl = document.getElementById('saveFieldBtn');
     if (saveFieldBtnEl) saveFieldBtnEl.addEventListener('click', () => { ensureAudio(); saveCurrentField(); });
+    const syncLocalFieldsBtnEl = document.getElementById('syncLocalFieldsBtn');
+    if (syncLocalFieldsBtnEl) syncLocalFieldsBtnEl.addEventListener('click', openUploadLocalFieldsDialog);
+    const uploadLocalFieldsDialogEl = document.getElementById('uploadLocalFieldsDialog');
+    attachAutoClose(uploadLocalFieldsDialogEl);
+    const uploadLocalFieldsFormEl = document.getElementById('uploadLocalFieldsForm');
+    if (uploadLocalFieldsFormEl) uploadLocalFieldsFormEl.addEventListener('submit', uploadSelectedLocalFields);
+    const uploadLocalFieldsCancelEl = document.getElementById('uploadLocalFieldsCancel');
+    if (uploadLocalFieldsCancelEl) uploadLocalFieldsCancelEl.addEventListener('click', () => uploadLocalFieldsDialogEl?.close());
     const editSavedFieldBtnEl = document.getElementById('editSavedFieldBtn');
     if (editSavedFieldBtnEl) editSavedFieldBtnEl.addEventListener('click', () => { ensureAudio(); beginEditingSavedField(); });
     const savedFieldsListEl = document.getElementById('savedFieldsList');
@@ -1486,9 +1709,61 @@
       });
     }
 
+    window.addEventListener('tubetally:auth-change', event => {
+      syncUser = event.detail?.user || null;
+      savedFields = savedFields.filter(field => !field.accountUserId || field.accountUserId === syncUser?.id);
+      persistSavedFields();
+      renderSavedFieldsList();
+      updateCloudUi();
+      if (syncUser) void maybeOfferLocalUpload();
+    });
+    window.addEventListener('tubetally:remote-fields', event => mergeRemoteFields(
+      event.detail?.fields || [],
+      !!event.detail?.cached
+    ));
+    window.addEventListener('tubetally:snapshot-synced', event => {
+      const { localFieldId, runId, userId } = event.detail || {};
+      const field = savedFields.find(item => item.id === localFieldId || fieldRunId(item) === runId);
+      if (field) {
+        field.cloudBacked = true;
+        field.syncedUserId = userId;
+        field.syncPending = false;
+        void window.tubeTallyData?.saveLocalField(field);
+        persistSavedFields();
+        renderSavedFieldsList();
+        updateCloudUi();
+      }
+    });
+    window.addEventListener('tubetally:sync-state', event => {
+      const status = document.getElementById('syncStatus');
+      if (!status) return;
+      const labels = {
+        local: 'Local only',
+        syncing: 'Syncing…',
+        synced: 'Synced',
+        offline: 'Offline · saved locally',
+        signin: 'Sign in to sync',
+        error: 'Sync paused'
+      };
+      const stateLabel = event.detail?.state || 'local';
+      status.textContent = labels[stateLabel] || labels.local;
+      status.title = event.detail?.pending ? `${event.detail.pending} change(s) waiting to sync` : status.textContent;
+      status.classList.toggle('hidden', stateLabel === 'local' && !syncUser);
+    });
+
     // Prime audio on first interaction
     document.addEventListener('touchstart', ensureAudio, { once: true });
     document.addEventListener('mousedown', ensureAudio, { once: true });
+
+    void window.tubeTallyData?.initialize(savedFields).then(localFields => {
+      const accountFields = syncUser
+        ? savedFields.filter(field => field.accountUserId === syncUser.id)
+        : [];
+      savedFields = [...localFields, ...accountFields];
+      renderSavedFieldsList();
+      updateCloudUi();
+      if (syncUser) void maybeOfferLocalUpload();
+    }).catch(error => console.warn('Unable to initialize offline field storage', error));
 
     const isShared = loadFromShareUrl();
     render(isShared);
