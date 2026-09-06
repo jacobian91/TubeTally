@@ -5,7 +5,7 @@
   "scripts": {
     "build:auth": "esbuild src/auth.js --bundle --minify --format=iife --outfile=src/auth.v2.10.bundle.js",
     "build:data": "esbuild src/data-storage.js --bundle --minify --format=iife --outfile=src/data-storage.v2.bundle.js",
-    "build:organizations": "esbuild src/organizations.js --bundle --minify --format=iife --outfile=src/organizations.v1.bundle.js",
+    "build:organizations": "esbuild src/organizations.js --bundle --minify --format=iife --outfile=src/organizations.v1.1.bundle.js",
     "gen:version": "node tools/gen-version.js",
     "test": "node --test tests/*.test.mjs",
     "typecheck:functions": "tsc --noEmit --target ES2022 --module NodeNext --moduleResolution NodeNext --lib ES2022,DOM --types node --allowJs --skipLibCheck netlify/functions/fields.mts netlify/functions/cleanup-autosaves.mts netlify/functions/organizations.mts",
