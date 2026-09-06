@@ -1,16 +1,25 @@
 {
   "name": "tubetally",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "TubeTally web app",
   "scripts": {
     "build:auth": "esbuild src/auth.js --bundle --minify --format=iife --outfile=src/auth.v2.10.bundle.js",
+    "build:data": "esbuild src/data-storage.js --bundle --minify --format=iife --outfile=src/data-storage.v1.bundle.js",
     "gen:version": "node tools/gen-version.js",
-    "build": "npm run build:auth && npm run gen:version"
+    "test": "node --test tests/*.test.mjs",
+    "typecheck:functions": "tsc --noEmit --target ES2022 --module NodeNext --moduleResolution NodeNext --lib ES2022,DOM --allowJs --skipLibCheck netlify/functions/fields.mts netlify/functions/cleanup-autosaves.mts",
+    "check:functions": "esbuild netlify/functions/fields.mts netlify/functions/cleanup-autosaves.mts --bundle --platform=node --format=esm --outdir=.netlify/function-check --external:@netlify/database --external:@netlify/identity --external:@netlify/functions",
+    "build": "npm run build:auth && npm run build:data && npm run gen:version"
   },
   "dependencies": {
+    "@netlify/database": "^2.0.1",
+    "@netlify/functions": "^6.0.0",
     "@netlify/identity": "^2.0.0"
   },
   "devDependencies": {
-    "esbuild": "^0.28.2"
+    "@types/node": "^26.4.1",
+    "esbuild": "^0.28.2",
+    "fake-indexeddb": "^6.2.5",
+    "typescript": "^7.0.2"
   }
 }

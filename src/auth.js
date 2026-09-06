@@ -61,6 +61,16 @@ let callbackToken = null;
 let hasOauthProviders = false;
 let signupEnabled = false;
 
+function publishAuthState() {
+  const user = currentUser ? {
+    id: currentUser.id,
+    email: currentUserEmail(currentUser),
+    name: displayName(currentUser),
+  } : null;
+  window.tubeTallyUser = user;
+  window.dispatchEvent(new CustomEvent('tubetally:auth-change', { detail: { user } }));
+}
+
 const PROVIDER_LABELS = {
   google: 'Google',
   github: 'GitHub',
@@ -271,6 +281,7 @@ profileForm.addEventListener('submit', async (event) => {
       data: { ...(currentUser.userMetadata || {}), full_name: fullName },
     }));
     renderAccountButton();
+    publishAuthState();
     showAccount();
     showNotice('Name updated');
   } catch (error) {
@@ -336,6 +347,7 @@ logoutButton.addEventListener('click', async () => {
     currentUser = null;
     knownEmail = '';
     renderAccountButton();
+    publishAuthState();
     dialog.close();
     showNotice('Logged out');
   } catch (error) {
@@ -382,6 +394,7 @@ form.addEventListener('submit', async (event) => {
       showNotice('Tube Tally account created');
     }
     renderAccountButton();
+    publishAuthState();
   } catch (error) {
     setError(friendlyError(error));
   } finally {
@@ -392,12 +405,14 @@ form.addEventListener('submit', async (event) => {
 onAuthChange((_event, user) => {
   currentUser = mergeUser(currentUser, user);
   renderAccountButton();
+  publishAuthState();
 });
 
 async function initializeAuth() {
   await processCallback();
   currentUser = mergeUser(currentUser, await getUser()) || currentUser;
   renderAccountButton();
+  publishAuthState();
   try {
     const settings = await getSettings();
     signupEnabled = !settings.disableSignup;
