@@ -7,7 +7,8 @@ const ASSETS_TO_CACHE = [
   './icon.svg',
   './version.json',
   './auth.v2.10.bundle.js',
-  './data-storage.v2.bundle.js'
+  './data-storage.v2.bundle.js',
+  './organizations.v1.bundle.js'
 ];
 
 self.addEventListener('install', (event) => {
