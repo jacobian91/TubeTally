@@ -388,16 +388,16 @@ export default async (req: Request, context: Context) => {
   try {
     if (req.method !== 'GET') verifyRequestOrigin(req);
     if (req.method === 'GET' && !organizationId) return json(await listOrganizations(user.id, user.email));
-    if (req.method === 'POST' && !organizationId) return json(await createOrganization(user.id, await req.json()), 201);
-    if (req.method === 'GET' && organizationId && !memberId && !invitationId) return json(await listMembers(user.id, organizationId));
-    if (req.method === 'POST' && organizationId && !memberId && !invitationId) return json(await createInvitation(user.id, organizationId, await req.json()), 201);
-    if (req.method === 'PATCH' && organizationId && memberId) return json(await updateMembership(user.id, organizationId, memberId, await req.json()));
-    if (req.method === 'DELETE' && organizationId && memberId) return json(await removeMembership(user.id, organizationId, memberId));
     if (req.method === 'POST' && invitationId) {
       const body = await req.json();
       return json(await respondToInvitation(user.id, user.email, invitationId, body.action));
     }
     if (req.method === 'DELETE' && invitationId) return json(await cancelInvitation(user.id, invitationId));
+    if (req.method === 'POST' && !organizationId) return json(await createOrganization(user.id, await req.json()), 201);
+    if (req.method === 'GET' && organizationId && !memberId && !invitationId) return json(await listMembers(user.id, organizationId));
+    if (req.method === 'POST' && organizationId && !memberId && !invitationId) return json(await createInvitation(user.id, organizationId, await req.json()), 201);
+    if (req.method === 'PATCH' && organizationId && memberId) return json(await updateMembership(user.id, organizationId, memberId, await req.json()));
+    if (req.method === 'DELETE' && organizationId && memberId) return json(await removeMembership(user.id, organizationId, memberId));
     if (req.method === 'PUT' && !organizationId && !invitationId) return json(await updateInvitePreference(user.id, await req.json()));
     return json({ error: 'Method not allowed' }, 405);
   } catch (error) {
