@@ -15,6 +15,7 @@ import {
   validateInvitePreference,
   validateMembershipUpdate,
 } from './_shared/organization-validation.mjs';
+import { routeOrganizationRequest } from './_shared/organization-routing.mjs';
 
 const json = (body: unknown, status = 200) => Response.json(body, {
   status,
@@ -381,24 +382,29 @@ async function cancelInvitation(identityUserId: string, invitationId: string) {
 export default async (req: Request, context: Context) => {
   const user = await getUser();
   if (!user?.id || !user.email) return json({ error: 'Unauthorized' }, 401);
+  const userEmail = user.email;
   const organizationId = context.params.organizationId;
   const memberId = context.params.memberId;
   const invitationId = context.params.invitationId;
 
   try {
     if (req.method !== 'GET') verifyRequestOrigin(req);
-    if (req.method === 'GET' && !organizationId) return json(await listOrganizations(user.id, user.email));
-    if (req.method === 'POST' && invitationId) {
-      const body = await req.json();
-      return json(await respondToInvitation(user.id, user.email, invitationId, body.action));
-    }
-    if (req.method === 'DELETE' && invitationId) return json(await cancelInvitation(user.id, invitationId));
-    if (req.method === 'POST' && !organizationId) return json(await createOrganization(user.id, await req.json()), 201);
-    if (req.method === 'GET' && organizationId && !memberId && !invitationId) return json(await listMembers(user.id, organizationId));
-    if (req.method === 'POST' && organizationId && !memberId && !invitationId) return json(await createInvitation(user.id, organizationId, await req.json()), 201);
-    if (req.method === 'PATCH' && organizationId && memberId) return json(await updateMembership(user.id, organizationId, memberId, await req.json()));
-    if (req.method === 'DELETE' && organizationId && memberId) return json(await removeMembership(user.id, organizationId, memberId));
-    if (req.method === 'PUT' && !organizationId && !invitationId) return json(await updateInvitePreference(user.id, await req.json()));
+    const result = await routeOrganizationRequest({
+      request: req,
+      params: { organizationId, memberId, invitationId },
+      actions: {
+        listOrganizations: () => listOrganizations(user.id, userEmail),
+        createOrganization: (body: unknown) => createOrganization(user.id, body),
+        listMembers: (id: string) => listMembers(user.id, id),
+        createInvitation: (id: string, body: unknown) => createInvitation(user.id, id, body),
+        updateMembership: (id: string, targetId: string, body: unknown) => updateMembership(user.id, id, targetId, body),
+        removeMembership: (id: string, targetId: string) => removeMembership(user.id, id, targetId),
+        respondToInvitation: (id: string, body: { action: string }) => respondToInvitation(user.id, userEmail, id, body.action),
+        cancelInvitation: (id: string) => cancelInvitation(user.id, id),
+        updateInvitePreference: (body: unknown) => updateInvitePreference(user.id, body),
+      },
+    });
+    if (result !== null) return json(result, req.method === 'POST' && !organizationId && !invitationId ? 201 : 200);
     return json({ error: 'Method not allowed' }, 405);
   } catch (error) {
     if (error instanceof OrganizationAuthorizationError) return json({ error: error.message }, 403);
