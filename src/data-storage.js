@@ -161,7 +161,10 @@ async function sendQueueItem(item) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(compactSnapshot(item.snapshot)),
       };
-  const url = item.operation === 'delete' ? `${API_URL}/${item.runId}` : API_URL;
+  const scopeQuery = item.organizationId
+    ? `?organizationId=${encodeURIComponent(item.organizationId)}`
+    : '';
+  const url = item.operation === 'delete' ? `${API_URL}/${item.runId}${scopeQuery}` : API_URL;
   const response = await fetch(url, { ...request, credentials: 'same-origin' });
   if (!response.ok && !(item.operation === 'delete' && response.status === 404)) {
     const body = await response.json().catch(() => ({}));
@@ -225,6 +228,7 @@ async function queueSnapshot(snapshot, localFieldId = null) {
     queueId: `snapshot:${currentUser.id}:${snapshot.snapshotId}`,
     operation: 'snapshot',
     userId: currentUser.id,
+    organizationId: snapshot.organizationId || null,
     localFieldId,
     snapshot: compactSnapshot(snapshot),
     queuedAt: new Date().toISOString(),
@@ -235,14 +239,15 @@ async function queueSnapshot(snapshot, localFieldId = null) {
   return true;
 }
 
-async function queueDelete(runId) {
+async function queueDelete(runId, organizationId = null) {
   if (!currentUser?.id || !runId) return false;
-  const queueId = `delete:${currentUser.id}:${runId}`;
+  const queueId = `delete:${currentUser.id}:${organizationId || 'personal'}:${runId}`;
   await put('syncQueue', {
     queueId,
     operation: 'delete',
     userId: currentUser.id,
     runId,
+    organizationId,
     queuedAt: new Date().toISOString(),
   });
   setSyncState(navigator.onLine ? 'syncing' : 'offline', 1);
@@ -251,17 +256,21 @@ async function queueDelete(runId) {
   return true;
 }
 
-async function refreshRemoteFields() {
+async function refreshRemoteFields(organizationId = null) {
   if (!currentUser?.id || !navigator.onLine) return;
   try {
-    const response = await fetch(API_URL, {
+    const scopeQuery = organizationId ? `?organizationId=${encodeURIComponent(organizationId)}` : '';
+    const response = await fetch(`${API_URL}${scopeQuery}`, {
       headers: { Accept: 'application/json' },
       credentials: 'same-origin',
       cache: 'no-store',
     });
     if (!response.ok) throw new Error(`Unable to load account fields (${response.status})`);
     const body = await response.json();
-    emit('tubetally:remote-fields', { fields: (body.fields || []).map(inflateRemoteField) });
+    emit('tubetally:remote-fields', {
+      fields: (body.fields || []).map(inflateRemoteField),
+      organizationId,
+    });
   } catch (error) {
     console.warn('Unable to refresh account fields', error);
   }

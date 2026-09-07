@@ -41,6 +41,9 @@ export function validateSnapshot(input) {
   if (!['autosave', 'manual'].includes(snapshotType)) {
     throw new ValidationError('snapshotType must be autosave or manual.');
   }
+  const organizationId = input.organizationId == null || input.organizationId === ''
+    ? null
+    : requiredUuid(input.organizationId, 'organizationId');
 
   const revision = Number(input.revision);
   if (!Number.isSafeInteger(revision) || revision < 0) {
@@ -95,6 +98,7 @@ export function validateSnapshot(input) {
     snapshotId,
     runId,
     snapshotType,
+    organizationId,
     revision,
     fieldName,
     normalizedFieldName: fieldName ? normalizeFieldName(fieldName) : '',
