@@ -1,7 +1,6 @@
 # TubeTally
 
 Track status of anything by numbered row quickly and then be able to share easily. Designed for irrigation tubes for farming
-# TubeTally
 
 ## Organization integration test
 
@@ -14,4 +13,4 @@ Create the GitHub environment `organization-integration`, then add these environ
 - `TUBETALLY_E2E_MEMBER_EMAIL`
 - `TUBETALLY_E2E_MEMBER_PASSWORD`
 
-Run **Organization integration** from the Actions tab with the desired deploy-preview URL. It creates or reuses `TubeTally Integration Test`, then verifies invite, accept, admin promotion, demotion, and removal.
+The check runs automatically for trusted pull-request updates. You can also run **Organization integration** from the Actions tab with a specific deploy-preview URL. It creates or reuses `TubeTally Integration Test`, then verifies invite, accept, admin promotion, demotion, and removal.
