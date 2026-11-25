@@ -1009,11 +1009,35 @@
         const d = document.createElement('div');
         d.className = 'border-b' + (document.documentElement.classList.contains('dark') ? ' border-gray-700' : ' border-gray-200') + ' py-2' + (viewMode ? '' : ' cursor-pointer hover:opacity-80 transition-opacity');
         d.style.userSelect = 'none';
+        d.dataset.row = String(n);
+        d.style.touchAction = 'pan-y';
         // pad number to 3 digits (non-breaking spaces) and right-align, make badge non-wrapping
         const num = String(n).padStart(3, '\u00A0');
         d.innerHTML = `<div class='history-row w-full'><span class='history-number font-mono opacity-70'>${num}:</span><span class='history-badge text-white ${c}'>${stLabel}</span></div>`;
         if (!viewMode) {
-          d.addEventListener('click', () => openChangeRowDialog(n, st));
+          let holdTimer = null;
+          let pressX = 0, pressY = 0, held = false;
+          const cancelHold = () => { if (holdTimer !== null) clearTimeout(holdTimer); holdTimer = null; };
+          d.addEventListener('pointerdown', event => {
+            if (event.button !== 0 || !event.isPrimary) return;
+            held = false;
+            pressX = event.clientX; pressY = event.clientY;
+            cancelHold();
+            holdTimer = setTimeout(() => {
+              holdTimer = null;
+              held = true;
+              openChangeRowDialog(n, state.rows[n]);
+            }, 550);
+          });
+          d.addEventListener('pointermove', event => {
+            if (Math.abs(event.clientX - pressX) > 12 || Math.abs(event.clientY - pressY) > 12) cancelHold();
+          });
+          ['pointerup', 'pointercancel', 'pointerleave'].forEach(type => d.addEventListener(type, cancelHold));
+          d.addEventListener('contextmenu', event => event.preventDefault());
+          d.addEventListener('click', () => {
+            if (held) { held = false; return; }
+            openChangeRowDialog(n, state.rows[n]);
+          });
         }
         h.appendChild(d);
       }
@@ -1051,20 +1075,41 @@
       return totals;
     }
 
+    function refreshSavedFieldsScopes() {
+      const select = document.getElementById('savedFieldsScopeSelect');
+      if (!select) return;
+      const chosen = savedFieldsScope;
+      select.replaceChildren(new Option('All fields', 'all'), new Option('Personal fields', 'personal'));
+      for (const org of window.tubeTallyOrganizations?.list?.() || []) select.add(new Option(org.name, org.id));
+      savedFieldsScope = Array.from(select.options).some(option => option.value === chosen) ? chosen : 'all';
+      select.value = savedFieldsScope;
+    }
+    function openSavedFieldsForScope(scope = 'all') {
+      savedFieldsScope = scope;
+      refreshSavedFieldsScopes();
+      renderSavedFieldsList();
+      if (!savedFieldsDialog?.open) savedFieldsDialog?.showModal();
+      if (scope !== 'all' && scope !== 'personal') void window.tubeTallyData?.refreshRemoteFields?.(scope);
+      else if (syncUser) void window.tubeTallyData?.refreshRemoteFields?.();
+    }
+
     function renderSavedFieldsList() {
       const list = document.getElementById('savedFieldsList');
       if (!list) return;
       list.innerHTML = '';
-      if (!savedFields.length) {
+      const visibleFields = savedFields.filter(field =>
+        savedFieldsScope === 'all' || (savedFieldsScope === 'personal'
+          ? !field.organizationId : field.organizationId === savedFieldsScope));
+      if (!visibleFields.length) {
         const empty = document.createElement('div');
         empty.className = 'saved-field-empty';
-        empty.textContent = 'No saved fields yet';
+        empty.textContent = savedFieldsScope === 'all' ? 'No saved fields yet' : 'No fields in this location yet';
         list.appendChild(empty);
         return;
       }
       const activeId = viewMode && viewModeSource === 'savedField' ? viewingSavedFieldId : null;
       const editingId = currentlyEditingSavedFieldId;
-      for (const field of savedFields) {
+      for (const field of visibleFields) {
         const counts = summarizeRows(field.rows);
         const item = document.createElement('div');
         item.className = 'saved-field-item';
@@ -1389,6 +1434,26 @@
       svg.appendChild(line);
     }
 
+    // Tapping a band locates the corresponding entry in the history sidebar.
+    document.getElementById('fieldViz').addEventListener('click', event => {
+      const svg = event.currentTarget;
+      const bounds = svg.getBoundingClientRect();
+      if (!bounds.height) return;
+      const totalRows = Math.max(state.currentRow - 1, 50);
+      const selectedRow = Math.min(totalRows, Math.max(1,
+        Math.floor((event.clientY - bounds.top) / bounds.height * totalRows) + 1));
+      const history = document.getElementById('history');
+      const entries = [...history.querySelectorAll('[data-row]')];
+      if (!entries.length) return;
+      const closest = entries.reduce((best, item) =>
+        Math.abs(Number(item.dataset.row) - selectedRow) < Math.abs(Number(best.dataset.row) - selectedRow)
+          ? item : best);
+      history.scrollTop += closest.getBoundingClientRect().top -
+        history.getBoundingClientRect().top - history.clientHeight / 2 + closest.clientHeight / 2;
+      closest.classList.add('ring-2', 'ring-purple-500');
+      setTimeout(() => closest.classList.remove('ring-2', 'ring-purple-500'), 1200);
+    });
+
     // ---------- Actions ----------
     function record(status) {
       if (viewMode) {
@@ -1673,9 +1738,19 @@
       const savedFieldsBtn = document.getElementById('savedFieldsBtn');
       if (savedFieldsBtn) savedFieldsBtn.addEventListener('click', () => {
         ensureAudio();
-        renderSavedFieldsList();
-        savedFieldsDialog.showModal();
+        openSavedFieldsForScope('all');
       });
+      const scopeSelect = document.getElementById('savedFieldsScopeSelect');
+      scopeSelect?.addEventListener('change', () => {
+        savedFieldsScope = scopeSelect.value;
+        renderSavedFieldsList();
+        if (savedFieldsScope !== 'all' && savedFieldsScope !== 'personal')
+          void window.tubeTallyData?.refreshRemoteFields?.(savedFieldsScope);
+      });
+      window.addEventListener('tubetally:open-organization-fields', event => {
+        openSavedFieldsForScope(event.detail?.organizationId || 'all');
+      });
+      window.addEventListener('tubetally:organizations-updated', () => refreshSavedFieldsScopes());
     }
     
     savedFieldDeleteDialog = document.getElementById('savedFieldDeleteDialog');
