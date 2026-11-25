@@ -1,0 +1,46 @@
+name: Organization browser smoke test
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+    paths:
+      - 'src/organizations.js'
+      - 'src/auth.js'
+      - 'src/index.html'
+      - 'tools/test-organization-ui.mjs'
+      - '.github/workflows/organization-ui.yml'
+  workflow_dispatch:
+    inputs:
+      target_url:
+        description: Preview URL to test
+        required: true
+        type: string
+
+jobs:
+  browser:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    environment: organization-integration
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install browser test runtime
+        run: |
+          npm install --no-save --package-lock=false playwright
+          npx playwright install --with-deps chromium
+      - name: Exercise actual mobile browser UI
+        env:
+          TUBETALLY_E2E_URL: ${{ inputs.target_url || format('https://deploy-preview-{0}--farm-tube-tally.netlify.app', github.event.pull_request.number) }}
+          TUBETALLY_E2E_ADMIN_EMAIL: ${{ secrets.TUBETALLY_E2E_ADMIN_EMAIL }}
+          TUBETALLY_E2E_ADMIN_PASSWORD: ${{ secrets.TUBETALLY_E2E_ADMIN_PASSWORD }}
+        run: node tools/test-organization-ui.mjs
+      - name: Upload failed UI screenshot
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: organization-ui-failure
+          path: /tmp/organization-ui-failure.png
+          if-no-files-found: ignore
