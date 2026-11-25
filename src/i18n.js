@@ -14,6 +14,20 @@
     'Language': 'Idioma', 'English': 'Inglés', 'Spanish': 'Español',
     'Block organization invitations': 'Bloquear invitaciones de organizaciones',
     'Install TubeTally': 'Instalar TubeTally',
+    'Hold 0.75s to edit': 'Mantén pulsado 0,75 s para editar',
+    'Hold to edit row': 'Mantén pulsado para editar el surco',
+    'Open TubeTally in Safari first.': 'Primero abre TubeTally en Safari.',
+    'In Safari, tap Share (square with an up arrow). If needed, open the Page Menu first.':
+      'En Safari, toca Compartir (el cuadrado con una flecha hacia arriba). Si es necesario, abre primero el menú de página.',
+    'Select Add to Home Screen.': 'Selecciona Añadir a pantalla de inicio.',
+    'Turn on Open as Web App (if shown), then tap Add.':
+      'Activa Abrir como app (si aparece) y luego toca Añadir.',
+    'The TubeTally icon will appear on your Home Screen.':
+      'El icono de TubeTally aparecerá en tu pantalla de inicio.',
+    'Use Safari’s Share menu to add TubeTally to your Home Screen.':
+      'Usa el menú Compartir de Safari para añadir TubeTally a tu pantalla de inicio.',
+    'Open TubeTally in Safari to add it to your Home Screen.':
+      'Abre TubeTally en Safari para añadirlo a tu pantalla de inicio.',
     'Checking install support…': 'Comprobando instalación…',
     'Install': 'Instalar', 'Installed': 'Instalado',
     'Clear all data': 'Borrar todos los datos',
@@ -145,6 +159,7 @@
       let match;
       if ((match = /^Saved (.+)$/.exec(core))) translated = 'Guardado ' + match[1];
       else if ((match = /^Viewing (.+)$/.exec(core))) translated = 'Viendo ' + match[1];
+      else if ((match = /^Hold to edit row (\d+)$/.exec(core))) translated = 'Mantén pulsado para editar el surco ' + match[1];
       else if ((match = /^(.+) created$/.exec(core))) translated = match[1] + ' creada';
       else if ((match = /^Joined (.+)$/.exec(core))) translated = 'Te uniste a ' + match[1];
       else if ((match = /^Join (.+)\? All fields saved there are shared with the organization\.$/.exec(core)))
