@@ -14,6 +14,16 @@ const context = await browser.newContext({
   hasTouch: true,
 });
 const page = await context.newPage();
+// First-time app loads can perform a one-off automatic version reload.
+// Prime the current version before navigation so clicks cannot be interrupted mid-login.
+const versionResponse = await page.request.get(new URL('/version.json', baseUrl).href);
+if (!versionResponse.ok()) throw new Error('Preview version endpoint unavailable.');
+const { version } = await versionResponse.json();
+assert(version, 'Preview must provide a build version');
+await context.addInitScript(currentVersion => {
+  localStorage.setItem('tubetally.cachedVersion', currentVersion);
+  sessionStorage.setItem('tubetally.reloadedFor', currentVersion);
+}, version);
 const requests = [];
 const pageErrors = [];
 page.on('pageerror', error => pageErrors.push(error.message));
@@ -26,7 +36,9 @@ page.on('response', response => {
 const orgName = `TubeTally UI CI ${randomUUID().slice(0, 8)}`;
 try {
   await page.goto(baseUrl, { waitUntil: 'domcontentloaded' });
+  await page.waitForFunction(() => Object.hasOwn(window, 'tubeTallyUser'));
   await page.locator('#accountBtn').click();
+  await page.locator('#authDialog[open]').waitFor({ state: 'visible', timeout: 10000 });
   await page.locator('#authEmail').fill(email);
   await page.locator('#authPassword').fill(password);
   await page.locator('#authSubmit').click();
