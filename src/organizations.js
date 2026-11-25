@@ -87,6 +87,18 @@ function renderOrganizations() {
     text.firstElementChild.textContent = organization.name;
     text.lastElementChild.textContent = `${organization.member_count} member${organization.member_count === 1 ? '' : 's'} · ${organization.role}`;
     row.append(text);
+    const fields = document.createElement('button');
+    fields.type = 'button';
+    fields.className = 'icon-btn text-sm';
+    fields.dataset.surface = '';
+    fields.textContent = 'Fields';
+    fields.addEventListener('click', () => {
+      organizationsDialog.close();
+      window.dispatchEvent(new CustomEvent('tubetally:open-organization-fields', {
+        detail: { organizationId: organization.id },
+      }));
+    });
+    row.append(fields);
     if (organization.role === 'admin') {
       const manage = document.createElement('button');
       manage.type = 'button';
@@ -115,6 +127,7 @@ async function refreshOrganizations() {
   blockInvitesGroup?.classList.remove('hidden');
   renderSelector();
   renderOrganizations();
+  window.dispatchEvent(new CustomEvent('tubetally:organizations-updated'));
   window.tubeTallyData?.refreshRemoteFields?.();
   for (const organization of organizations) void window.tubeTallyData?.refreshRemoteFields?.(organization.id);
   showNextInvitation();
