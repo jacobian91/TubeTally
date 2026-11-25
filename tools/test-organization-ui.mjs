@@ -69,7 +69,13 @@ try {
   assert.equal(data.status, 200, 'Organizations API must be readable after reload');
   assert(data.json.organizations.some(org => org.name === orgName && org.role === 'admin'),
     'Created organization must persist in database with admin membership');
-  console.log('PASS: organization stays visible after reload and is persisted in the API');
+  const selector = await page.evaluate(() => ({
+    options: [...document.querySelectorAll('#fieldOrganizationSelect option')].map(option => option.textContent),
+    hidden: document.getElementById('fieldOrganizationGroup')?.classList.contains('hidden'),
+  }));
+  assert(selector.options.includes(orgName), 'Created organization must appear in the field scope selector');
+  assert.equal(selector.hidden, false, 'Organization scope selector must be visible when membership exists');
+  console.log('PASS: organization stays visible after reload, persists in the API, and is selectable for fields');
 } catch (error) {
   console.error('UI test failed:', error.message);
   console.error('Organization API requests:', requests.join(' | '));
