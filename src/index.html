@@ -44,9 +44,11 @@
       flex-direction: column;
       height: 100svh;
       padding-bottom: env(safe-area-inset-bottom);
-      touch-action: pan-x pan-y;
+      touch-action: manipulation;
     }
 
+    #fieldViz { touch-action: manipulation; cursor: pointer; }
+    #history { overscroll-behavior: contain; }
     #mainContent {
       display: flex;
       flex: 1;
@@ -412,6 +414,11 @@
         class="w-5 h-5" /><span>Dark theme</span></label>
       <label class="flex items-center gap-2 col-span-2"><input id="leftHandedToggle" type="checkbox"
         class="w-5 h-5" /><span>Left-handed layout</span></label>
+      <label class="flex items-center gap-2 col-span-2"><span>Language</span>
+        <select id="languageSelect" class="auth-input flex-1" aria-label="Language">
+          <option value="en">English</option><option value="es">Español</option>
+        </select>
+      </label>
       <label id="blockOrganizationInvitesGroup" class="hidden flex items-center gap-2 col-span-2"><input id="blockOrganizationInvitesToggle" type="checkbox"
         class="w-5 h-5" /><span>Block organization invitations</span></label>
       </div>
@@ -553,6 +560,11 @@
       <div id="savedFieldActions" class="hidden">
         <button id="editSavedFieldBtn" class="icon-btn w-full bg-purple-600 text-white font-bold text-sm">Resume editing</button>
       </div>
+      <label class="block text-sm font-semibold">Show fields from
+        <select id="savedFieldsScopeSelect" class="auth-input mt-1" aria-label="Field organization">
+          <option value="all">All fields</option><option value="personal">Personal fields</option>
+        </select>
+      </label>
       <div class="card flex-1 overflow-hidden">
         <div id="savedFieldsList" class="p-3 space-y-2 overflow-y-auto max-h-[50vh]"></div>
       </div>
@@ -671,8 +683,9 @@
   <div id="toast" role="status" aria-live="polite">Copied to clipboard</div>
 
   <script src="./data-storage.v2.bundle.js"></script>
-  <script src="./auth.v2.10.bundle.js" defer></script>
-  <script src="./organizations.v1.1.bundle.js" defer></script>
+  <script src="./auth.v2.10.bundle.js"></script>
+  <script src="./organizations.v1.1.bundle.js"></script>
+  <script src="./i18n.js"></script>
   <script>
     const STORAGE_KEY = 'tubetally.v1';
     window.deferredPrompt = null;
@@ -701,7 +714,7 @@
 
     // ---------- State ----------
     const newId = () => crypto.randomUUID();
-    const initial = { fieldName: '', organizationId: '', startedAt: '', currentRow: 1, rows: {}, actions: [], runId: '', revision: 0, dirtyChanges: 0, prefs: { haptic: true, beep: true, wake: true, dark: false, leftHanded: false } };
+    const initial = { fieldName: '', organizationId: '', startedAt: '', currentRow: 1, rows: {}, actions: [], runId: '', revision: 0, dirtyChanges: 0, prefs: { haptic: true, beep: true, wake: true, dark: false, leftHanded: false, language: 'en' } };
     function freshState(prefs = initial.prefs, organizationId = '') {
       return { ...initial, organizationId, runId: newId(), startedAt: nowLocalISO(), prefs: { ...prefs }, rows: {}, actions: [] };
     }
@@ -727,6 +740,7 @@
     let currentlyEditingSavedFieldId = null;
     let savedFields = loadSavedFields();
     let savedFieldsDialog = null;
+    let savedFieldsScope = 'all';
     let savedFieldDeleteDialog = null;
     let pendingDeleteSavedFieldId = null;
     let pendingFieldNameAction = null;
@@ -1447,17 +1461,18 @@
         rows: data.rows || {},
         currentRow: data.currentRow || nextRowFromRows(data.rows),
       });
-      const currentUrl = window.location.href.split('#')[0];
-      return `${currentUrl}#d=1.${encoded}`;
+      const url = new URL(window.location.pathname, window.location.origin);
+      url.searchParams.set('d', `1.${encoded}`);
+      return url.href;
     }
 
     function loadFromShareUrl() {
       const fullHash = window.location.hash;
-      console.log('Full hash:', fullHash);
-      if (!fullHash || !fullHash.includes('d=')) return false;
+      const shareQuery = new URLSearchParams(window.location.search).get('d');
+      if (!shareQuery && !fullHash.includes('d=')) return false;
       
       try {
-        let encoded = fullHash.substring(fullHash.indexOf('d=') + 2);
+        let encoded = shareQuery || fullHash.substring(fullHash.indexOf('d=') + 2);
         let fieldName;
         let startedAt;
         let rows;
@@ -1504,11 +1519,13 @@
     async function shareReport(data = state) { 
       const url = buildShareUrl(data);
       const text = buildReport(data) + '\n\n' + url;
-      if (navigator.share) { 
-        try { 
-          await navigator.share({ title: 'TubeTally Report', text }); 
-          return; 
-        } catch { return; } 
+      if (navigator.share) {
+        try {
+          await navigator.share({ title: 'TubeTally Report', text: 'TubeTally field report', url });
+          return;
+        } catch (error) {
+          if (error?.name === 'AbortError') return;
+        }
       } 
       try { 
         await navigator.clipboard.writeText(text); 
@@ -1723,6 +1740,7 @@
       $('#wakeToggle').checked = !!state.prefs.wake;
       $('#darkToggle').checked = !!state.prefs.dark;
       $('#leftHandedToggle').checked = !!state.prefs.leftHanded;
+      $('#languageSelect').value = state.prefs.language || 'en';
       settingsDialog.showModal();
     };
     const settingsFormEl = document.getElementById('settingsForm');
@@ -1732,6 +1750,8 @@
       state.prefs.wake = $('#wakeToggle').checked;
       state.prefs.dark = $('#darkToggle').checked;
       state.prefs.leftHanded = $('#leftHandedToggle').checked;
+      state.prefs.language = $('#languageSelect').value;
+      window.tubeTallyI18n?.setLanguage(state.prefs.language);
       if (!state.startedAt) state.startedAt = nowLocalISO();
       save(); render(); updateWakeLock();
     };
@@ -1822,6 +1842,12 @@
       status.classList.toggle('hidden', stateLabel === 'local' && !syncUser);
     });
 
+    // Safari ignores viewport zoom restrictions for some gesture sequences.
+    // Preserve normal scrolling and form input, but prevent pinch zoom.
+    document.addEventListener('gesturestart', event => event.preventDefault(), { passive: false });
+    document.addEventListener('gesturechange', event => event.preventDefault(), { passive: false });
+    document.addEventListener('gestureend', event => event.preventDefault(), { passive: false });
+
     // Prime audio on first interaction
     document.addEventListener('touchstart', ensureAudio, { once: true });
     document.addEventListener('mousedown', ensureAudio, { once: true });
@@ -1836,6 +1862,7 @@
       if (syncUser) void maybeOfferLocalUpload();
     }).catch(error => console.warn('Unable to initialize offline field storage', error));
 
+    window.tubeTallyI18n?.setLanguage(state.prefs.language || 'en');
     const isShared = loadFromShareUrl();
     render(isShared);
     if (isShared) {
@@ -1871,11 +1898,10 @@
             if (already !== ver) {
               sessionStorage.setItem(sessionKey, ver);
               // Build a cache-busting URL (preserve hash)
-              const base = window.location.href.split('#')[0].split('?')[0];
-              const hash = window.location.hash || '';
-              const cbUrl = `${base}?cb=${Date.now()}${hash}`;
+              const cbUrl = new URL(window.location.href);
+              cbUrl.searchParams.set('cb', String(Date.now()));
               // Use replace to avoid creating history entries
-              window.location.replace(cbUrl);
+              window.location.replace(cbUrl.href);
             }
           }
         } catch (e) {
