@@ -52,8 +52,8 @@ test('field scopes, row navigation and long press hooks are wired', () => {
 });
 
 test('history rows edit only after a 750ms hold, and cancel on tap or scroll', () => {
-  const start = html.indexOf('        if (!viewMode) {\\n          let holdTimer = null;');
-  const end = html.indexOf('\\n        h.appendChild(d);', start);
+  const start = html.indexOf('        if (!viewMode) {\n          let holdTimer = null;');
+  const end = html.indexOf('\n        h.appendChild(d);', start);
   assert.ok(start >= 0 && end > start, 'history interaction handlers exist');
   const listeners = {};
   const timers = new Map();
