@@ -84,3 +84,9 @@ test('rejects owner fields supplied by the browser by ignoring them', () => {
   const result = validateSnapshot(input);
   assert.equal('ownerUserId' in result, false);
 });
+
+test('accepts an organization ID while preserving server-owned access checks', () => {
+  const input = validSnapshot();
+  input.organizationId = '33333333-3333-4333-8333-333333333333';
+  assert.equal(validateSnapshot(input).organizationId, input.organizationId);
+});

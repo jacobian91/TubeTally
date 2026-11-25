@@ -1,0 +1,30 @@
+name: Organization integration
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+  workflow_dispatch:
+    inputs:
+      target_url:
+        description: Deploy preview URL to test
+        required: true
+        type: string
+
+jobs:
+  test:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    environment: organization-integration
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Run organization integration flow
+        env:
+          TUBETALLY_E2E_URL: ${{ inputs.target_url || format('https://deploy-preview-{0}--farm-tube-tally.netlify.app', github.event.pull_request.number) }}
+          TUBETALLY_E2E_ADMIN_EMAIL: ${{ secrets.TUBETALLY_E2E_ADMIN_EMAIL }}
+          TUBETALLY_E2E_ADMIN_PASSWORD: ${{ secrets.TUBETALLY_E2E_ADMIN_PASSWORD }}
+          TUBETALLY_E2E_MEMBER_EMAIL: ${{ secrets.TUBETALLY_E2E_MEMBER_EMAIL }}
+          TUBETALLY_E2E_MEMBER_PASSWORD: ${{ secrets.TUBETALLY_E2E_MEMBER_PASSWORD }}
+        run: node tools/test-organizations-integration.mjs

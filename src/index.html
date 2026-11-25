@@ -44,9 +44,11 @@
       flex-direction: column;
       height: 100svh;
       padding-bottom: env(safe-area-inset-bottom);
-      touch-action: pan-x pan-y;
+      touch-action: manipulation;
     }
 
+    #fieldViz { touch-action: manipulation; cursor: pointer; }
+    #history { overscroll-behavior: contain; }
     #mainContent {
       display: flex;
       flex: 1;
@@ -412,6 +414,13 @@
         class="w-5 h-5" /><span>Dark theme</span></label>
       <label class="flex items-center gap-2 col-span-2"><input id="leftHandedToggle" type="checkbox"
         class="w-5 h-5" /><span>Left-handed layout</span></label>
+      <label class="flex items-center gap-2 col-span-2"><span>Language</span>
+        <select id="languageSelect" class="auth-input flex-1" aria-label="Language">
+          <option value="en">English</option><option value="es">Español</option>
+        </select>
+      </label>
+      <label id="blockOrganizationInvitesGroup" class="hidden flex items-center gap-2 col-span-2"><input id="blockOrganizationInvitesToggle" type="checkbox"
+        class="w-5 h-5" /><span>Block organization invitations</span></label>
       </div>
       <div class="border-t border-gray-200 dark:border-gray-700 pt-4 space-y-2">
         <div class="flex items-start justify-between gap-3">
@@ -434,11 +443,59 @@
       <label class="block">
         <input id="fieldNameDialogInput" class="mt-1 w-full rounded-xl border border-gray-300 p-3 bg-white text-black" placeholder="e.g., West 40 — Block A" />
       </label>
+      <label id="fieldOrganizationGroup" class="hidden block text-sm font-semibold">Save to
+        <select id="fieldOrganizationSelect" class="mt-1 w-full rounded-xl border border-gray-300 p-3 bg-white text-black">
+          <option value="">Personal fields</option>
+        </select>
+      </label>
       <div class="flex items-end justify-end gap-2">
         <button type="button" class="icon-btn" data-surface onclick="fieldNameDialog.returnValue='cancel'; fieldNameDialog.close()">Cancel</button>
         <button class="icon-btn bg-gray-900 text-white">Save</button>
       </div>
     </form>
+  </dialog>
+
+  <dialog id="organizationsDialog" class="rounded-2xl p-0 w-[30rem] max-w-[95vw]">
+    <div class="p-5 space-y-4">
+      <div class="flex items-center justify-between gap-3">
+        <div><div class="text-lg font-bold">Organizations</div><p class="text-sm opacity-70">Organization fields are shared with every member.</p></div>
+        <button id="organizationsClose" class="icon-btn !p-2" data-surface type="button" aria-label="Close organizations">Close</button>
+      </div>
+      <div id="organizationsList" class="space-y-2"></div>
+      <form id="createOrganizationForm" class="card p-3 space-y-2">
+        <label class="block text-sm font-semibold">New organization
+          <input id="createOrganizationName" class="auth-input mt-1 font-normal" maxlength="120" required placeholder="e.g., West Valley Farm" />
+        </label>
+        <button class="icon-btn w-full justify-center bg-[color:var(--green)] text-white font-bold" type="submit">Create organization</button>
+      </form>
+    </div>
+  </dialog>
+
+  <dialog id="organizationMembersDialog" class="rounded-2xl p-0 w-[30rem] max-w-[95vw]">
+    <div class="p-5 space-y-4">
+      <div class="flex items-center justify-between gap-3">
+        <div><div id="organizationMembersTitle" class="text-lg font-bold">Members</div><p class="text-sm opacity-70">Admins can manage membership.</p></div>
+        <button id="organizationMembersClose" class="icon-btn !p-2" data-surface type="button">Close</button>
+      </div>
+      <div id="organizationMembersList" class="space-y-2 max-h-[38vh] overflow-y-auto"></div>
+      <form id="organizationInviteForm" class="hidden card p-3 space-y-2">
+        <label class="block text-sm font-semibold">Invite by email
+          <input id="organizationInviteEmail" class="auth-input mt-1 font-normal" type="email" autocomplete="email" required />
+        </label>
+        <button class="icon-btn w-full justify-center bg-[color:var(--green)] text-white font-bold" type="submit">Send invitation</button>
+      </form>
+    </div>
+  </dialog>
+
+  <dialog id="organizationInviteDialog" class="rounded-2xl p-0 w-[26rem] max-w-[95vw]">
+    <div class="p-5 space-y-4">
+      <div class="text-lg font-bold">Organization invitation</div>
+      <p id="organizationInviteMessage" class="text-sm opacity-80"></p>
+      <div class="grid grid-cols-2 gap-2">
+        <button id="declineOrganizationInvite" class="icon-btn justify-center" data-surface type="button">Decline</button>
+        <button id="acceptOrganizationInvite" class="icon-btn justify-center bg-[color:var(--green)] text-white font-bold" type="button">Accept</button>
+      </div>
+    </div>
   </dialog>
 
   <!-- New field confirmation dialog -->
@@ -503,6 +560,11 @@
       <div id="savedFieldActions" class="hidden">
         <button id="editSavedFieldBtn" class="icon-btn w-full bg-purple-600 text-white font-bold text-sm">Resume editing</button>
       </div>
+      <label class="block text-sm font-semibold">Show fields from
+        <select id="savedFieldsScopeSelect" class="auth-input mt-1" aria-label="Field organization">
+          <option value="all">All fields</option><option value="personal">Personal fields</option>
+        </select>
+      </label>
       <div class="card flex-1 overflow-hidden">
         <div id="savedFieldsList" class="p-3 space-y-2 overflow-y-auto max-h-[50vh]"></div>
       </div>
@@ -599,6 +661,7 @@
             <input id="profileEmail" class="auth-input mt-1 font-normal opacity-70" type="email" readonly />
           </label>
         </form>
+        <button id="authOrganizations" class="icon-btn w-full justify-center" data-surface type="button">Organizations</button>
         <button id="profileChangeEmail" class="icon-btn w-full justify-center" data-surface type="button">Change email</button>
         <form id="profileEmailForm" class="hidden space-y-3 rounded-xl border border-gray-300 dark:border-gray-700 p-3">
           <label class="block text-sm font-semibold">New email
@@ -620,7 +683,9 @@
   <div id="toast" role="status" aria-live="polite">Copied to clipboard</div>
 
   <script src="./data-storage.v2.bundle.js"></script>
-  <script src="./auth.v2.10.bundle.js" defer></script>
+  <script src="./auth.v2.10.bundle.js"></script>
+  <script src="./organizations.v1.1.bundle.js"></script>
+  <script src="./i18n.js"></script>
   <script>
     const STORAGE_KEY = 'tubetally.v1';
     window.deferredPrompt = null;
@@ -649,9 +714,9 @@
 
     // ---------- State ----------
     const newId = () => crypto.randomUUID();
-    const initial = { fieldName: '', startedAt: '', currentRow: 1, rows: {}, actions: [], runId: '', revision: 0, dirtyChanges: 0, prefs: { haptic: true, beep: true, wake: true, dark: false, leftHanded: false } };
-    function freshState(prefs = initial.prefs) {
-      return { ...initial, runId: newId(), startedAt: nowLocalISO(), prefs: { ...prefs }, rows: {}, actions: [] };
+    const initial = { fieldName: '', organizationId: '', startedAt: '', currentRow: 1, rows: {}, actions: [], runId: '', revision: 0, dirtyChanges: 0, prefs: { haptic: true, beep: true, wake: true, dark: false, leftHanded: false, language: 'en' } };
+    function freshState(prefs = initial.prefs, organizationId = '') {
+      return { ...initial, organizationId, runId: newId(), startedAt: nowLocalISO(), prefs: { ...prefs }, rows: {}, actions: [] };
     }
     function hydrateState(value) {
       const base = freshState(value?.prefs || initial.prefs);
@@ -675,6 +740,7 @@
     let currentlyEditingSavedFieldId = null;
     let savedFields = loadSavedFields();
     let savedFieldsDialog = null;
+    let savedFieldsScope = 'all';
     let savedFieldDeleteDialog = null;
     let pendingDeleteSavedFieldId = null;
     let pendingFieldNameAction = null;
@@ -731,6 +797,7 @@
         snapshotId: newId(),
         runId,
         snapshotType,
+        organizationId: source.organizationId || null,
         revision: Number.isSafeInteger(source.revision) ? source.revision : 0,
         payload: snapshotPayload(source, snapshotType === 'manual' ? (source.savedAt || nowLocalISO()) : '')
       };
@@ -747,24 +814,28 @@
       if (shouldAutosave) void queueFieldSnapshot('autosave', state);
     }
 
-    function mergeRemoteFields(remoteFields = [], cached = false) {
+    function mergeRemoteFields(remoteFields = [], cached = false, organizationId = null) {
       const currentAccountId = syncUser?.id;
       if (!cached && currentAccountId) {
         const remoteRunIds = new Set(remoteFields.map(fieldRunId).filter(Boolean));
         const staleAccountFields = savedFields.filter(field => field.accountUserId === currentAccountId
+          && (field.organizationId || null) === (organizationId || null)
           && !remoteRunIds.has(fieldRunId(field)));
         for (const field of staleAccountFields) void window.tubeTallyData?.deleteLocalField(field.id);
         savedFields = savedFields.filter(field => field.accountUserId !== currentAccountId
+          || (field.organizationId || null) !== (organizationId || null)
           || remoteRunIds.has(fieldRunId(field)));
       }
       for (const remote of remoteFields) {
         const runId = fieldRunId(remote);
         if (!runId) continue;
-        const existingIndex = savedFields.findIndex(field => fieldRunId(field) === runId);
+        const existingIndex = savedFields.findIndex(field => fieldRunId(field) === runId
+          && (field.organizationId || null) === (organizationId || remote.organizationId || null));
         if (existingIndex >= 0 && savedFields[existingIndex].syncPending) continue;
         const existing = existingIndex >= 0 ? savedFields[existingIndex] : null;
         const merged = {
           ...remote,
+          organizationId: organizationId || remote.organizationId || null,
           id: existing?.id || remote.id || runId,
           runId,
           cloudBacked: true,
@@ -938,11 +1009,35 @@
         const d = document.createElement('div');
         d.className = 'border-b' + (document.documentElement.classList.contains('dark') ? ' border-gray-700' : ' border-gray-200') + ' py-2' + (viewMode ? '' : ' cursor-pointer hover:opacity-80 transition-opacity');
         d.style.userSelect = 'none';
+        d.dataset.row = String(n);
+        d.style.touchAction = 'pan-y';
         // pad number to 3 digits (non-breaking spaces) and right-align, make badge non-wrapping
         const num = String(n).padStart(3, '\u00A0');
         d.innerHTML = `<div class='history-row w-full'><span class='history-number font-mono opacity-70'>${num}:</span><span class='history-badge text-white ${c}'>${stLabel}</span></div>`;
         if (!viewMode) {
-          d.addEventListener('click', () => openChangeRowDialog(n, st));
+          let holdTimer = null;
+          let pressX = 0, pressY = 0, held = false;
+          const cancelHold = () => { if (holdTimer !== null) clearTimeout(holdTimer); holdTimer = null; };
+          d.addEventListener('pointerdown', event => {
+            if (event.button !== 0 || !event.isPrimary) return;
+            held = false;
+            pressX = event.clientX; pressY = event.clientY;
+            cancelHold();
+            holdTimer = setTimeout(() => {
+              holdTimer = null;
+              held = true;
+              openChangeRowDialog(n, state.rows[n]);
+            }, 550);
+          });
+          d.addEventListener('pointermove', event => {
+            if (Math.abs(event.clientX - pressX) > 12 || Math.abs(event.clientY - pressY) > 12) cancelHold();
+          });
+          ['pointerup', 'pointercancel', 'pointerleave'].forEach(type => d.addEventListener(type, cancelHold));
+          d.addEventListener('contextmenu', event => event.preventDefault());
+          d.addEventListener('click', () => {
+            if (held) { held = false; return; }
+            openChangeRowDialog(n, state.rows[n]);
+          });
         }
         h.appendChild(d);
       }
@@ -980,20 +1075,41 @@
       return totals;
     }
 
+    function refreshSavedFieldsScopes() {
+      const select = document.getElementById('savedFieldsScopeSelect');
+      if (!select) return;
+      const chosen = savedFieldsScope;
+      select.replaceChildren(new Option('All fields', 'all'), new Option('Personal fields', 'personal'));
+      for (const org of window.tubeTallyOrganizations?.list?.() || []) select.add(new Option(org.name, org.id));
+      savedFieldsScope = Array.from(select.options).some(option => option.value === chosen) ? chosen : 'all';
+      select.value = savedFieldsScope;
+    }
+    function openSavedFieldsForScope(scope = 'all') {
+      savedFieldsScope = scope;
+      refreshSavedFieldsScopes();
+      renderSavedFieldsList();
+      if (!savedFieldsDialog?.open) savedFieldsDialog?.showModal();
+      if (scope !== 'all' && scope !== 'personal') void window.tubeTallyData?.refreshRemoteFields?.(scope);
+      else if (syncUser) void window.tubeTallyData?.refreshRemoteFields?.();
+    }
+
     function renderSavedFieldsList() {
       const list = document.getElementById('savedFieldsList');
       if (!list) return;
       list.innerHTML = '';
-      if (!savedFields.length) {
+      const visibleFields = savedFields.filter(field =>
+        savedFieldsScope === 'all' || (savedFieldsScope === 'personal'
+          ? !field.organizationId : field.organizationId === savedFieldsScope));
+      if (!visibleFields.length) {
         const empty = document.createElement('div');
         empty.className = 'saved-field-empty';
-        empty.textContent = 'No saved fields yet';
+        empty.textContent = savedFieldsScope === 'all' ? 'No saved fields yet' : 'No fields in this location yet';
         list.appendChild(empty);
         return;
       }
       const activeId = viewMode && viewModeSource === 'savedField' ? viewingSavedFieldId : null;
       const editingId = currentlyEditingSavedFieldId;
-      for (const field of savedFields) {
+      for (const field of visibleFields) {
         const counts = summarizeRows(field.rows);
         const item = document.createElement('div');
         item.className = 'saved-field-item';
@@ -1056,6 +1172,9 @@
           </div>
           <div class="text-[0.7rem] opacity-60 mt-1">${safeStatusLabel}</div>
         `;
+        if (field.organizationId && window.tubeTallyOrganizations?.getRole(field.organizationId) !== 'admin') {
+          item.querySelector('[data-action="delete"]')?.remove();
+        }
         list.appendChild(item);
       }
     }
@@ -1173,6 +1292,7 @@
         id: editingId || runId,
         runId,
         fieldName: state.fieldName || `Field ${savedFields.length + 1}`,
+        organizationId: state.organizationId || null,
         startedAt: state.startedAt || nowLocalISO(),
         savedAt: nowLocalISO(),
         rows: { ...state.rows },
@@ -1199,7 +1319,7 @@
       savedFields.splice(idx, 1);
       persistSavedFields();
       void window.tubeTallyData?.deleteLocalField(removed.id);
-      if (removed.cloudBacked || removed.syncPending) void window.tubeTallyData?.queueDelete(fieldRunId(removed));
+      if (removed.cloudBacked || removed.syncPending) void window.tubeTallyData?.queueDelete(fieldRunId(removed), removed.organizationId || null);
       if (viewMode && viewModeSource === 'savedField' && viewingSavedFieldId === id) {
         toggleViewMode();
       } else {
@@ -1234,6 +1354,7 @@
         ...initial,
         runId: fieldRunId(entry) || newId(),
         fieldName: entry.fieldName || '',
+        organizationId: entry.organizationId || '',
         startedAt: entry.startedAt || '',
         rows: { ...entry.rows },
         actions: [],
@@ -1313,6 +1434,26 @@
       svg.appendChild(line);
     }
 
+    // Tapping a band locates the corresponding entry in the history sidebar.
+    document.getElementById('fieldViz').addEventListener('click', event => {
+      const svg = event.currentTarget;
+      const bounds = svg.getBoundingClientRect();
+      if (!bounds.height) return;
+      const totalRows = Math.max(state.currentRow - 1, 50);
+      const selectedRow = Math.min(totalRows, Math.max(1,
+        Math.floor((event.clientY - bounds.top) / bounds.height * totalRows) + 1));
+      const history = document.getElementById('history');
+      const entries = [...history.querySelectorAll('[data-row]')];
+      if (!entries.length) return;
+      const closest = entries.reduce((best, item) =>
+        Math.abs(Number(item.dataset.row) - selectedRow) < Math.abs(Number(best.dataset.row) - selectedRow)
+          ? item : best);
+      history.scrollTop += closest.getBoundingClientRect().top -
+        history.getBoundingClientRect().top - history.clientHeight / 2 + closest.clientHeight / 2;
+      closest.classList.add('ring-2', 'ring-purple-500');
+      setTimeout(() => closest.classList.remove('ring-2', 'ring-purple-500'), 1200);
+    });
+
     // ---------- Actions ----------
     function record(status) {
       if (viewMode) {
@@ -1385,17 +1526,18 @@
         rows: data.rows || {},
         currentRow: data.currentRow || nextRowFromRows(data.rows),
       });
-      const currentUrl = window.location.href.split('#')[0];
-      return `${currentUrl}#d=1.${encoded}`;
+      const url = new URL(window.location.pathname, window.location.origin);
+      url.searchParams.set('d', `1.${encoded}`);
+      return url.href;
     }
 
     function loadFromShareUrl() {
       const fullHash = window.location.hash;
-      console.log('Full hash:', fullHash);
-      if (!fullHash || !fullHash.includes('d=')) return false;
+      const shareQuery = new URLSearchParams(window.location.search).get('d');
+      if (!shareQuery && !fullHash.includes('d=')) return false;
       
       try {
-        let encoded = fullHash.substring(fullHash.indexOf('d=') + 2);
+        let encoded = shareQuery || fullHash.substring(fullHash.indexOf('d=') + 2);
         let fieldName;
         let startedAt;
         let rows;
@@ -1442,11 +1584,13 @@
     async function shareReport(data = state) { 
       const url = buildShareUrl(data);
       const text = buildReport(data) + '\n\n' + url;
-      if (navigator.share) { 
-        try { 
-          await navigator.share({ title: 'TubeTally Report', text }); 
-          return; 
-        } catch { return; } 
+      if (navigator.share) {
+        try {
+          await navigator.share({ title: 'TubeTally Report', text: 'TubeTally field report', url });
+          return;
+        } catch (error) {
+          if (error?.name === 'AbortError') return;
+        }
       } 
       try { 
         await navigator.clipboard.writeText(text); 
@@ -1465,7 +1609,7 @@
       savedFieldReturnState = null;
       savedFieldReturnMeta = null;
       currentlyEditingSavedFieldId = null;
-      state = freshState(prefsCopy);
+      state = freshState(prefsCopy, state.organizationId || '');
       try { localStorage.removeItem(STORAGE_KEY); } catch { }
       save();
       render();
@@ -1594,9 +1738,19 @@
       const savedFieldsBtn = document.getElementById('savedFieldsBtn');
       if (savedFieldsBtn) savedFieldsBtn.addEventListener('click', () => {
         ensureAudio();
-        renderSavedFieldsList();
-        savedFieldsDialog.showModal();
+        openSavedFieldsForScope('all');
       });
+      const scopeSelect = document.getElementById('savedFieldsScopeSelect');
+      scopeSelect?.addEventListener('change', () => {
+        savedFieldsScope = scopeSelect.value;
+        renderSavedFieldsList();
+        if (savedFieldsScope !== 'all' && savedFieldsScope !== 'personal')
+          void window.tubeTallyData?.refreshRemoteFields?.(savedFieldsScope);
+      });
+      window.addEventListener('tubetally:open-organization-fields', event => {
+        openSavedFieldsForScope(event.detail?.organizationId || 'all');
+      });
+      window.addEventListener('tubetally:organizations-updated', () => refreshSavedFieldsScopes());
     }
     
     savedFieldDeleteDialog = document.getElementById('savedFieldDeleteDialog');
@@ -1661,6 +1815,7 @@
       $('#wakeToggle').checked = !!state.prefs.wake;
       $('#darkToggle').checked = !!state.prefs.dark;
       $('#leftHandedToggle').checked = !!state.prefs.leftHanded;
+      $('#languageSelect').value = state.prefs.language || 'en';
       settingsDialog.showModal();
     };
     const settingsFormEl = document.getElementById('settingsForm');
@@ -1670,6 +1825,8 @@
       state.prefs.wake = $('#wakeToggle').checked;
       state.prefs.dark = $('#darkToggle').checked;
       state.prefs.leftHanded = $('#leftHandedToggle').checked;
+      state.prefs.language = $('#languageSelect').value;
+      window.tubeTallyI18n?.setLanguage(state.prefs.language);
       if (!state.startedAt) state.startedAt = nowLocalISO();
       save(); render(); updateWakeLock();
     };
@@ -1684,11 +1841,15 @@
     document.getElementById('fieldNameLabel').addEventListener('click', () => {
       if (viewMode) return;
       fieldNameInputDialog.value = state.fieldName || '';
+      const organizationSelect = document.getElementById('fieldOrganizationSelect');
+      if (organizationSelect) organizationSelect.value = state.organizationId || '';
       fieldNameDialog.showModal();
     });
     document.getElementById('fieldNameForm').addEventListener('submit', (e) => {
       e.preventDefault();
       state.fieldName = fieldNameInputDialog.value.trim();
+      const organizationSelect = document.getElementById('fieldOrganizationSelect');
+      state.organizationId = organizationSelect?.value || '';
       if (!state.startedAt) state.startedAt = nowLocalISO();
       save();
       render();
@@ -1719,8 +1880,13 @@
     });
     window.addEventListener('tubetally:remote-fields', event => mergeRemoteFields(
       event.detail?.fields || [],
-      !!event.detail?.cached
+      !!event.detail?.cached,
+      event.detail?.organizationId || null,
     ));
+    window.addEventListener('tubetally:organization-selected', event => {
+      state.organizationId = event.detail?.organizationId || '';
+      save();
+    });
     window.addEventListener('tubetally:snapshot-synced', event => {
       const { localFieldId, runId, userId } = event.detail || {};
       const field = savedFields.find(item => item.id === localFieldId || fieldRunId(item) === runId);
@@ -1751,6 +1917,12 @@
       status.classList.toggle('hidden', stateLabel === 'local' && !syncUser);
     });
 
+    // Safari ignores viewport zoom restrictions for some gesture sequences.
+    // Preserve normal scrolling and form input, but prevent pinch zoom.
+    document.addEventListener('gesturestart', event => event.preventDefault(), { passive: false });
+    document.addEventListener('gesturechange', event => event.preventDefault(), { passive: false });
+    document.addEventListener('gestureend', event => event.preventDefault(), { passive: false });
+
     // Prime audio on first interaction
     document.addEventListener('touchstart', ensureAudio, { once: true });
     document.addEventListener('mousedown', ensureAudio, { once: true });
@@ -1765,6 +1937,7 @@
       if (syncUser) void maybeOfferLocalUpload();
     }).catch(error => console.warn('Unable to initialize offline field storage', error));
 
+    window.tubeTallyI18n?.setLanguage(state.prefs.language || 'en');
     const isShared = loadFromShareUrl();
     render(isShared);
     if (isShared) {
@@ -1800,11 +1973,10 @@
             if (already !== ver) {
               sessionStorage.setItem(sessionKey, ver);
               // Build a cache-busting URL (preserve hash)
-              const base = window.location.href.split('#')[0].split('?')[0];
-              const hash = window.location.hash || '';
-              const cbUrl = `${base}?cb=${Date.now()}${hash}`;
+              const cbUrl = new URL(window.location.href);
+              cbUrl.searchParams.set('cb', String(Date.now()));
               // Use replace to avoid creating history entries
-              window.location.replace(cbUrl);
+              window.location.replace(cbUrl.href);
             }
           }
         } catch (e) {
