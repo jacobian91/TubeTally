@@ -282,8 +282,12 @@ blockInvitesToggle?.addEventListener('change', () => void (async () => {
   reportError(error);
 }));
 
-window.addEventListener('tubetally:auth-change', (event) => {
-  currentUser = event.detail?.user || null;
+// Auth may restore a cached session before this script has registered its listener.
+// The auth bundle publishes the latest user on window.tubeTallyUser as well as by event.
+function applyAuthUser(user) {
+  const nextUser = user?.id ? user : null;
+  if (currentUser?.id === nextUser?.id && currentUser?.email === nextUser?.email) return;
+  currentUser = nextUser;
   blockInvitesGroup?.classList.toggle('hidden', !currentUser);
   if (refreshTimer) {
     clearInterval(refreshTimer);
@@ -294,10 +298,13 @@ window.addEventListener('tubetally:auth-change', (event) => {
     refreshTimer = setInterval(() => {
       void refreshOrganizations().catch(error => console.warn('Unable to refresh organizations', error));
     }, 15000);
-  }
-  else {
+  } else {
     organizations = [];
     pendingInvitations = [];
     renderSelector();
+    renderOrganizations();
   }
-});
+}
+
+window.addEventListener('tubetally:auth-change', event => applyAuthUser(event.detail?.user));
+applyAuthUser(window.tubeTallyUser || null);
