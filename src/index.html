@@ -339,7 +339,7 @@
       <div class="column">
         <!-- HISTORY -->
         <section id="historyWrap" class="flex flex-col flex-1 overflow-hidden">
-          <h2 class="font-semibold mt-1 mb-2 flex-none">History</h2>
+          <div class="flex items-center justify-between gap-2 mt-1 mb-2 flex-none"><h2 class="font-semibold">History</h2><span class="text-[10px] font-normal opacity-60">Hold 0.75s to edit</span></div>
           <div id="history" class="flex-1 overflow-y-auto card p-2"></div>
 
           <!-- History stats: compact single-row numeric badges (Slow / Good / Fast) -->
@@ -426,9 +426,18 @@
         <div class="flex items-start justify-between gap-3">
           <div>
             <div class="text-sm font-semibold">Install TubeTally</div>
-            <p id="installStatusLabel" class="text-xs opacity-70">Checking install support…</p>
+            <p id="installStatusLabel" aria-live="polite" class="text-xs opacity-70">Checking install support…</p>
           </div>
           <button type="button" id="installBtn" class="icon-btn bg-gray-900 text-white">Install</button>
+        </div>
+        <div id="iosInstallInstructions" class="hidden rounded-xl border border-indigo-200 bg-indigo-50 p-3 text-sm text-gray-900 dark:border-indigo-700 dark:bg-indigo-950 dark:text-gray-100" role="note">
+          <p id="iosOpenSafariHint" class="mb-2 font-semibold">Open TubeTally in Safari first.</p>
+          <ol class="list-decimal pl-5 space-y-1">
+            <li>In Safari, tap Share (square with an up arrow). If needed, open the Page Menu first.</li>
+            <li>Select Add to Home Screen.</li>
+            <li>Turn on Open as Web App (if shown), then tap Add.</li>
+          </ol>
+          <p class="mt-2 text-xs opacity-70">The TubeTally icon will appear on your Home Screen.</p>
         </div>
         <button type="button" id="clearAllBtn" class="icon-btn w-full bg-red-600 text-white font-bold text-sm justify-center">Clear all data</button>
       </div>
@@ -749,6 +758,10 @@
     let installBtnEl = null;
     let installStatusEl = null;
     let installStatusState = 'unavailable';
+    const isAppleMobile = /iPhone|iPad|iPod/i.test(navigator.userAgent)
+      || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const isSafariOnAppleMobile = isAppleMobile && /Safari/i.test(navigator.userAgent)
+      && !/CriOS|FxiOS|EdgiOS|OPiOS|DuckDuckGo/i.test(navigator.userAgent);
     let confirmDialogEl = null;
     let confirmDialogResolver = null;
     let syncUser = null;
@@ -937,11 +950,22 @@
     function setInstallStatus(state, overrideMsg) {
       installStatusState = state;
       const msg = overrideMsg || INSTALL_STATUS_MESSAGES[state] || INSTALL_STATUS_MESSAGES.unavailable;
-      if (installStatusEl) installStatusEl.textContent = msg;
+      if (installStatusEl) {
+        installStatusEl.textContent = isAppleMobile && state !== 'installed'
+          ? (isSafariOnAppleMobile
+            ? 'Use Safari’s Share menu to add TubeTally to your Home Screen.'
+            : 'Open TubeTally in Safari to add it to your Home Screen.')
+          : msg;
+      }
+      const iosInstructions = document.getElementById('iosInstallInstructions');
+      if (iosInstructions) iosInstructions.classList.toggle('hidden', !isAppleMobile || state === 'installed');
+      const safariHint = document.getElementById('iosOpenSafariHint');
+      if (safariHint) safariHint.classList.toggle('hidden', isSafariOnAppleMobile);
       if (installBtnEl) {
         const label = state === 'installed' ? 'Installed' : 'Install';
         installBtnEl.textContent = label;
-        installBtnEl.disabled = state !== 'available';
+        installBtnEl.classList.toggle('hidden', isAppleMobile);
+        installBtnEl.disabled = isAppleMobile || state !== 'available';
       }
     }
 
@@ -1016,26 +1040,29 @@
         d.innerHTML = `<div class='history-row w-full'><span class='history-number font-mono opacity-70'>${num}:</span><span class='history-badge text-white ${c}'>${stLabel}</span></div>`;
         if (!viewMode) {
           let holdTimer = null;
-          let pressX = 0, pressY = 0, held = false;
+          let pressX = 0, pressY = 0;
           const cancelHold = () => { if (holdTimer !== null) clearTimeout(holdTimer); holdTimer = null; };
+          d.style.webkitTouchCallout = 'none';
+          d.tabIndex = 0;
+          d.setAttribute('role', 'button');
+          d.setAttribute('aria-label', `Hold to edit row ${n}`);
           d.addEventListener('pointerdown', event => {
             if (event.button !== 0 || !event.isPrimary) return;
-            held = false;
-            pressX = event.clientX; pressY = event.clientY;
             cancelHold();
+            pressX = event.clientX; pressY = event.clientY;
             holdTimer = setTimeout(() => {
               holdTimer = null;
-              held = true;
               openChangeRowDialog(n, state.rows[n]);
-            }, 550);
+            }, 750);
           });
           d.addEventListener('pointermove', event => {
             if (Math.abs(event.clientX - pressX) > 12 || Math.abs(event.clientY - pressY) > 12) cancelHold();
           });
           ['pointerup', 'pointercancel', 'pointerleave'].forEach(type => d.addEventListener(type, cancelHold));
           d.addEventListener('contextmenu', event => event.preventDefault());
-          d.addEventListener('click', () => {
-            if (held) { held = false; return; }
+          d.addEventListener('keydown', event => {
+            if (event.key !== 'Enter' && event.key !== ' ') return;
+            event.preventDefault();
             openChangeRowDialog(n, state.rows[n]);
           });
         }
