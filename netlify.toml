@@ -1,6 +1,6 @@
 [build]
   base = "."
-  command = "npm run build"
+  command = "npm test && npm run typecheck:functions && npm run check:functions && npm run build"
   publish = "src"
 
 [functions]
