@@ -3,6 +3,11 @@ name: Organization integration
 on:
   pull_request:
     types: [opened, reopened, synchronize]
+    paths:
+      - 'netlify/functions/organizations.mts'
+      - 'netlify/functions/_shared/organization-*.mjs'
+      - 'tools/test-organizations-integration.mjs'
+      - '.github/workflows/organization-integration.yml'
   workflow_dispatch:
     inputs:
       target_url:
