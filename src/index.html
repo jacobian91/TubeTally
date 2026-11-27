@@ -1511,7 +1511,13 @@
       const fullHash = window.location.hash;
       const shareQuery = new URLSearchParams(window.location.search).get('d');
       if (!shareQuery && !fullHash.includes('d=')) return false;
-      
+
+      // A shared link transfers data only. Confirm before replacing active work,
+      // then remove the link payload so a refresh cannot overwrite later edits.
+      if (Object.keys(state.rows || {}).length &&
+        !window.confirm('Open this shared field? It will replace your current active field.')) {
+        return false;
+      }
       try {
         let encoded = shareQuery || fullHash.substring(fullHash.indexOf('d=') + 2);
         let fieldName;
@@ -1534,19 +1540,23 @@
         }
         
         if (fieldName !== undefined) {
-          state.runId = newId();
-          state.revision = 0;
-          state.dirtyChanges = 0;
-          state.fieldName = fieldName === 'Field' ? '' : fieldName;
-          state.startedAt = startedAt || nowLocalISO();
-          state.rows = rows;
-          state.currentRow = currentRow;
-          viewMode = true; // Enable view mode for shared URLs
-          viewModeSource = 'share';
+          state = {
+            ...freshState(state.prefs),
+            fieldName: fieldName === 'Field' ? '' : fieldName,
+            startedAt: startedAt || nowLocalISO(),
+            rows: { ...rows },
+            currentRow: currentRow || nextRowFromRows(rows),
+          };
+          viewMode = false; // Shared links open directly in independent edit mode.
+          viewModeSource = null;
           viewingSavedFieldId = null;
           currentlyEditingSavedFieldId = null;
           savedFieldReturnState = null;
           savedFieldReturnMeta = null;
+          const cleanedUrl = new URL(window.location.href);
+          cleanedUrl.searchParams.delete('d');
+          if (cleanedUrl.hash.includes('d=')) cleanedUrl.hash = '';
+          window.history.replaceState(null, '', cleanedUrl.href);
           save();
           return true;
         }
