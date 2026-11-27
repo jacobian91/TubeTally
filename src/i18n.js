@@ -12,7 +12,6 @@
     'Keep screen awake': 'Mantener pantalla encendida',
     'Dark theme': 'Tema oscuro', 'Left-handed layout': 'Diseño para zurdos',
     'Language': 'Idioma', 'English': 'Inglés', 'Spanish': 'Español',
-    'Block organization invitations': 'Bloquear invitaciones de organizaciones',
     'Install TubeTally': 'Instalar TubeTally',
     'Hold 0.75s to edit': 'Mantén pulsado 0,75 s para editar',
     'Hold to edit row': 'Mantén pulsado para editar el surco',
@@ -31,16 +30,8 @@
     'Checking install support…': 'Comprobando instalación…',
     'Install': 'Instalar', 'Installed': 'Instalado',
     'Clear all data': 'Borrar todos los datos',
-    'Field Name': 'Nombre del campo', 'Save to': 'Guardar en',
-    'Personal fields': 'Campos personales',
+    'Field Name': 'Nombre del campo',
     'Cancel': 'Cancelar', 'Save': 'Guardar', 'Close': 'Cerrar',
-    'Organizations': 'Organizaciones',
-    'Organization fields are shared with every member.': 'Los campos de la organización se comparten con todos sus miembros.',
-    'New organization': 'Nueva organización', 'Create organization': 'Crear organización',
-    'Members': 'Miembros', 'Admins can manage membership.': 'Los administradores pueden gestionar miembros.',
-    'Invite by email': 'Invitar por correo electrónico', 'Send invitation': 'Enviar invitación',
-    'Organization invitation': 'Invitación a la organización',
-    'Decline': 'Rechazar', 'Accept': 'Aceptar',
     'Start a new field?': '¿Empezar un campo nuevo?',
     'New field': 'Campo nuevo',
     'Change Row Status': 'Cambiar estado del surco', 'Row:': 'Surco:',
@@ -48,9 +39,7 @@
     'Saved fields stay on this device.': 'Los campos guardados permanecen en este dispositivo.',
     'Save current field': 'Guardar campo actual', 'Upload local fields': 'Subir campos locales',
     'Resume editing': 'Continuar editando',
-    'Show fields from': 'Mostrar campos de',
     'All fields': 'Todos los campos', 'No saved fields yet': 'Aún no hay campos guardados',
-    'No fields in this location yet': 'Aún no hay campos aquí',
     'Upload saved fields?': '¿Subir campos guardados?',
     'Choose which fields to add to your TubeTally account. They will also remain on this phone.':
       'Elige los campos que deseas añadir a tu cuenta de TubeTally. También permanecerán en este teléfono.',
@@ -93,19 +82,10 @@
     'Sign in to sync': 'Inicia sesión para sincronizar',
     'Sync paused': 'Sincronización pausada',
     'Viewing saved field': 'Viendo campo guardado',
-    'No organizations yet.': 'Aún no hay organizaciones.',
     'Manage': 'Administrar',
-    'Invitation sent': 'Invitación enviada',
-    'Invitation declined': 'Invitación rechazada',
-    'Organization invitations blocked': 'Invitaciones de organizaciones bloqueadas',
-    'Organization invitations allowed': 'Invitaciones de organizaciones permitidas',
-    'Unable to update organization': 'No se pudo actualizar la organización',
-    'Admin': 'Administrador', 'Member': 'Miembro',
-    'admin': 'administrador', 'member': 'miembro',
-    'Block invitations': 'Bloquear invitaciones',
-    'Invite': 'Invitar', 'Remove member': 'Eliminar miembro',
-    'Promote': 'Ascender', 'Demote': 'Cambiar a miembro',
-    'Already a member': 'Ya es miembro',
+    'Invite someone to Tube Tally': 'Invitar a alguien a Tube Tally',
+    'Send signup invitation': 'Enviar invitación para registrarse',
+    'Signup invitation sent.': 'Invitación de registro enviada.',
     'Checking install support…': 'Comprobando instalación…',
     'Ready to install from this browser.': 'Listo para instalar desde este navegador.',
     'Waiting for browser confirmation…': 'Esperando confirmación del navegador…',
@@ -143,8 +123,7 @@
     'Account fields': 'Campos de la cuenta',
     'Field reports': 'Informes de campo',
     'Row': 'Surco', 'Date': 'Fecha', 'Status': 'Estado',
-    'Edit': 'Editar', 'Done': 'Listo',
-    'Joined': 'Te uniste', 'Invite sent': 'Invitación enviada'
+    'Edit': 'Editar', 'Done': 'Listo'
   });
 
   const previousText = new WeakMap();
@@ -161,13 +140,8 @@
       else if ((match = /^Viewing (.+)$/.exec(core))) translated = 'Viendo ' + match[1];
       else if ((match = /^Hold to edit row (\d+)$/.exec(core))) translated = 'Mantén pulsado para editar el surco ' + match[1];
       else if ((match = /^(.+) created$/.exec(core))) translated = match[1] + ' creada';
-      else if ((match = /^Joined (.+)$/.exec(core))) translated = 'Te uniste a ' + match[1];
-      else if ((match = /^Join (.+)\? All fields saved there are shared with the organization\.$/.exec(core)))
-        translated = '¿Unirte a ' + match[1] + '? Todos los campos guardados allí se comparten con la organización.';
       else if ((match = /^(\d+) fields? queued for upload$/.exec(core)))
         translated = match[1] + ' campos pendientes de subir';
-      else if ((match = /^(\d+) members? · (admin|member)$/.exec(core)))
-        translated = match[1] + ' miembros · ' + translations[match[2]];
       else if ((match = /^(\d+) changes? waiting to sync$/.exec(core)))
         translated = match[1] + ' cambios pendientes de sincronizar';
     }
