@@ -102,7 +102,7 @@ try {
 
   // Audit all dialogs in the rendered app, not just the markup.
   const dialogIds = await page.locator('dialog').evaluateAll(dialogs => dialogs.map(d => d.id));
-  assert.equal(dialogIds.length, 9, 'All nine dialogs should be tested');
+  assert.equal(dialogIds.length, 10, 'All ten dialogs should be tested');
   for (const id of dialogIds) {
     await page.evaluate(dialogId => {
       const dialog = document.getElementById(dialogId);
@@ -211,6 +211,54 @@ try {
   await page.waitForFunction(name =>
     document.querySelector('#savedFieldsList')?.textContent?.includes(name), fieldName);
   console.log('PASS: personal field appears in saved fields');
+
+  // Verify the user has two explicit sharing formats, including native and copy paths.
+  await page.evaluate(() => {
+    window.__nativeShared = [];
+    window.__clipboardShared = [];
+    Object.defineProperty(navigator, 'share', {
+      configurable: true, value: async payload => { window.__nativeShared.push(payload); },
+    });
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText: async value => { window.__clipboardShared.push(value); } },
+    });
+  });
+  const fieldRow = page.locator('#savedFieldsList .saved-field-item').filter({ hasText: fieldName });
+  async function openFieldShare() {
+    await fieldRow.locator('[data-action="share"]').click();
+    await page.locator('#shareDialog[open]').waitFor();
+  }
+
+  await openFieldShare();
+  const textPreview = await page.locator('#shareTextPreview').textContent();
+  assert(textPreview.includes(`Field: ${fieldName}`), 'Text preview must include field name');
+  assert(textPreview.includes('Slow (1 rows): 1'), 'Text report must contain actual row history');
+  await page.locator('#shareTextBtn').click();
+  await page.locator('#shareDialog[open]').waitFor({ state: 'hidden' });
+  const textNative = await page.evaluate(() => window.__nativeShared.at(-1));
+  assert.equal(textNative.text, textPreview, 'Native share text must contain the full readable report');
+  assert.equal(textNative.url, undefined, 'Text-only share must not append an edit URL');
+
+  await openFieldShare();
+  await page.locator('#shareLinkBtn').click();
+  await page.locator('#shareDialog[open]').waitFor({ state: 'hidden' });
+  const linkNative = await page.evaluate(() => window.__nativeShared.at(-1));
+  assert(linkNative.url.includes('d=1.'), 'Native share link must embed the report payload');
+  assert.equal(linkNative.text, undefined, 'Editable link share must not add redundant report text');
+
+  await openFieldShare();
+  await page.locator('#copyShareTextBtn').click();
+  await page.locator('#shareDialog[open]').waitFor({ state: 'hidden' });
+  assert.equal(await page.evaluate(() => window.__clipboardShared.at(-1)), textPreview,
+    'Copy text must copy the readable report, without a URL');
+
+  await openFieldShare();
+  await page.locator('#copyShareLinkBtn').click();
+  await page.locator('#shareDialog[open]').waitFor({ state: 'hidden' });
+  assert.equal(await page.evaluate(() => window.__clipboardShared.at(-1)), linkNative.url,
+    'Copy link must copy the same independent editable field URL');
+  console.log('PASS: native share and copy each support complete text reports and independent links');
 
   await page.reload({ waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => !!window.tubeTallyUser?.id, { timeout: 20000 });
