@@ -45,7 +45,7 @@ test('personal fields, independent sharing, responsive header and long-press hoo
   assert.doesNotMatch(html, /id="savedFieldsScopeSelect"|id="authOrganizations"|id="fieldOrganizationSelect"/);
   assert.match(html, /id="accountInviteForm"/);
   assert.match(html, /class="topbar /);
-  assert.match(html, /@media \(max-width: 720px\)/);
+  assert.match(html, /@media \(max-width: 760px\)/);
   assert.match(html, /Shared links open directly in independent edit mode/);
   assert.match(html, /cleanedUrl\.searchParams\.delete\('d'\)/);
   assert.match(html, /fieldViz'\)\.addEventListener\('click'/);
