@@ -13,7 +13,7 @@
     'Dark theme': 'Tema oscuro', 'Left-handed layout': 'Diseño para zurdos',
     'Language': 'Idioma', 'English': 'Inglés', 'Spanish': 'Español',
     'Install TubeTally': 'Instalar TubeTally',
-    'Hold 0.75s to edit': 'Mantén pulsado 0,75 s para editar',
+    'Hold 0.5s to edit': 'Mantén pulsado 0,5 s para editar',
     'Hold to edit row': 'Mantén pulsado para editar el surco',
     'Open TubeTally in Safari first.': 'Primero abre TubeTally en Safari.',
     'In Safari, tap Share (square with an up arrow). If needed, open the Page Menu first.':
