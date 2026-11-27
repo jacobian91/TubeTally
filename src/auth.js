@@ -53,6 +53,10 @@ const profileNewEmailInput = document.getElementById('profileNewEmail');
 const profileCancelEmailButton = document.getElementById('profileCancelEmail');
 const profileConfirmEmailButton = document.getElementById('profileConfirmEmail');
 const profileResetPasswordButton = document.getElementById('profileResetPassword');
+const accountInviteForm = document.getElementById('accountInviteForm');
+const accountInviteEmail = document.getElementById('accountInviteEmail');
+const accountInviteSubmit = document.getElementById('accountInviteSubmit');
+const accountInviteStatus = document.getElementById('accountInviteStatus');
 
 let currentUser = null;
 let knownEmail = '';
@@ -197,6 +201,7 @@ function setMode(nextMode) {
 
 function showAccount() {
   setError();
+  if (accountInviteStatus) accountInviteStatus.textContent = '';
   form.classList.add('hidden');
   profilePanel.classList.remove('hidden');
   profileEmailForm.classList.add('hidden');
@@ -325,6 +330,29 @@ profileEmailForm.addEventListener('submit', async (event) => {
     setError(friendlyError(error));
   } finally {
     profileConfirmEmailButton.disabled = false;
+  }
+});
+
+// Account invitations only: recipients sign up independently; no field sharing or roles.
+accountInviteForm?.addEventListener('submit', async event => {
+  event.preventDefault();
+  accountInviteStatus.textContent = '';
+  accountInviteSubmit.disabled = true;
+  try {
+    const response = await fetch('/api/account-invitations', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ email: accountInviteEmail.value.trim() }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.error || 'Unable to send invitation.');
+    accountInviteStatus.textContent = 'Signup invitation sent.';
+    accountInviteForm.reset();
+  } catch (error) {
+    accountInviteStatus.textContent = error?.message || 'Unable to send invitation.';
+  } finally {
+    accountInviteSubmit.disabled = false;
   }
 });
 
