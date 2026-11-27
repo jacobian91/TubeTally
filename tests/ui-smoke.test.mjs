@@ -51,7 +51,7 @@ test('personal fields, independent sharing, responsive header and long-press hoo
   assert.match(html, /fieldViz'\)\.addEventListener\('click'/);
   assert.match(html, /openChangeRowDialog\(n, state\.rows\[n\]\)/);
   assert.match(html, /holdTimer = setTimeout/);
-  assert.match(html, /Hold 0\.5s to edit/);
+  assert.match(html, /Hold to edit/);
   assert.match(workerSource, /'\.\/i18n\.js'/);
 });
 
