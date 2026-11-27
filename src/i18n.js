@@ -48,6 +48,15 @@
     'this field': 'este campo', 'from this device and, if synced, your account.':
       'de este dispositivo y, si está sincronizado, de tu cuenta.',
     'Remove': 'Eliminar', 'Load': 'Cargar', 'Share': 'Compartir',
+    'Share Field': 'Compartir campo', 'Editable link': 'Enlace editable',
+    'Share link': 'Compartir enlace', 'Copy link': 'Copiar enlace',
+    'Opens an independent editable field in Tube Tally.':
+      'Abre un campo editable independiente en Tube Tally.',
+    'Text report': 'Informe de texto', 'Text report preview': 'Vista previa del informe',
+    'Share text': 'Compartir texto', 'Copy text': 'Copiar texto',
+    'Text report copied': 'Informe copiado', 'Link copied': 'Enlace copiado',
+    'Unable to copy. Use the Share option instead.': 'No se pudo copiar. Usa la opción Compartir.',
+
     'Log in to Tube Tally': 'Iniciar sesión en Tube Tally',
     'Use the email address connected to your invited account.':
       'Usa el correo electrónico asociado a tu cuenta invitada.',
