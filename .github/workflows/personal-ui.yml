@@ -52,6 +52,13 @@ jobs:
           TUBETALLY_E2E_ADMIN_EMAIL: ${{ secrets.TUBETALLY_E2E_ADMIN_EMAIL }}
           TUBETALLY_E2E_ADMIN_PASSWORD: ${{ secrets.TUBETALLY_E2E_ADMIN_PASSWORD }}
         run: node tools/test-personal-ui.mjs
+      - name: Upload mobile header screenshot for visual review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: signed-in-mobile-header
+          path: /tmp/tubetally-mobile-header.png
+          if-no-files-found: ignore
       - name: Upload browser screenshot on failure
         if: failure()
         uses: actions/upload-artifact@v4
