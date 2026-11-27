@@ -254,7 +254,7 @@ async function processCallback() {
 }
 
 accountButton.addEventListener('click', openDialog);
-closeButton.addEventListener('click', () => dialog.close());
+closeButton.addEventListener('click', () => dialog.close('cancel'));
 loginModeButton.addEventListener('click', () => setMode('login'));
 signupModeButton.addEventListener('click', () => setMode('signup'));
 forgotButton.addEventListener('click', () => setMode('recover'));
