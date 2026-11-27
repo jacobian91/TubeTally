@@ -85,7 +85,7 @@ try {
   const fieldName = `Personal UI test ${Date.now()}`;
   await page.locator('#fieldNameLabel').click();
   await page.locator('#fieldNameDialogInput').fill(fieldName);
-  await page.locator('#fieldNameForm button[type=submit]').click();
+  await page.locator('#fieldNameForm button').last().click();
   await page.locator('#btnGood').click();
   createdRunId = await page.evaluate(() => JSON.parse(localStorage.getItem('tubetally.v1'))?.runId);
   await page.locator('#savedFieldsBtn').click();
@@ -99,13 +99,12 @@ try {
   await page.locator('#savedFieldsBtn').click();
   await page.waitForFunction(name =>
     document.querySelector('#savedFieldsList')?.textContent?.includes(name), fieldName);
-  const cloud = await page.evaluate(async name => {
+  await page.waitForFunction(async name => {
     const res = await fetch('/api/fields', { credentials: 'same-origin', cache: 'no-store' });
+    if (!res.ok) return false;
     const body = await res.json();
-    return { status: res.status, field: body.fields?.find(field => field.fieldName === name) };
-  }, fieldName);
-  assert.equal(cloud.status, 200);
-  assert(cloud.field, 'Saved personal field persisted in cloud');
+    return body.fields?.some(field => field.fieldName === name);
+  }, fieldName, { timeout: 15000 });
   console.log('PASS: personal cloud field survives page reload');
 
   const shareUrl = await page.evaluate(() => buildShareUrl({
