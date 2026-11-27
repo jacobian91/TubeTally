@@ -329,6 +329,31 @@
       .topbar-actions { gap: .3rem; }
       .topbar-actions .icon-btn { font-size: .77rem; }
     }
+    /* Every modal has a visible, touch-friendly dismiss control. */
+    .dialog-exit {
+      position: absolute;
+      top: .65rem;
+      right: .65rem;
+      z-index: 2;
+      width: 2.5rem;
+      height: 2.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid var(--cardBorder);
+      border-radius: .75rem;
+      background: var(--card);
+      color: var(--fg);
+      cursor: pointer;
+    }
+    .dialog-exit:hover, .dialog-exit:focus-visible {
+      background: rgba(128, 128, 128, .14);
+    }
+    .dialog-heading { padding-right: 3rem; }
+    .dialog-exit:focus-visible {
+      outline: 2px solid var(--green);
+      outline-offset: 2px;
+    }
   </style>
 </head>
 
@@ -451,9 +476,10 @@
   </div>
 
   <!-- SETTINGS DIALOG -->
-  <dialog id="settingsDialog" class="rounded-2xl p-0 w-[28rem] max-w-[95vw]">
+  <dialog id="settingsDialog" class="rounded-2xl p-0 w-[28rem] max-w-[95vw]" aria-labelledby="settingsDialogTitle">
+    <button class="dialog-exit icon-btn" type="button" data-dialog-close aria-label="Close settings" title="Close"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"></path></svg></button>
     <form id="settingsForm" class="p-5 space-y-4">
-      <div class="text-lg font-bold">Settings</div>
+      <div id="settingsDialogTitle" class="dialog-heading text-lg font-bold">Settings</div>
       <div class="grid grid-cols-2 gap-4">
       <label class="flex items-center gap-2"><input id="hapticToggle" type="checkbox"
         class="w-5 h-5" /><span>Vibration</span></label>
@@ -495,9 +521,10 @@
   </dialog>
 
   <!-- Field name dialog (opened by clicking the field label) -->
-  <dialog id="fieldNameDialog" class="rounded-2xl p-0 w-[22rem] max-w-[95vw]">
+  <dialog id="fieldNameDialog" class="rounded-2xl p-0 w-[22rem] max-w-[95vw]" aria-labelledby="fieldNameDialogTitle">
+    <button class="dialog-exit icon-btn" type="button" data-dialog-close aria-label="Close field name" title="Close"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"></path></svg></button>
     <form id="fieldNameForm" class="p-5 space-y-4">
-      <div class="text-lg font-bold">Field Name</div>
+      <div id="fieldNameDialogTitle" class="dialog-heading text-lg font-bold">Field Name</div>
       <label class="block">
         <input id="fieldNameDialogInput" class="mt-1 w-full rounded-xl border border-gray-300 p-3 bg-white text-black" placeholder="e.g., West 40 — Block A" />
       </label>
@@ -509,20 +536,22 @@
   </dialog>
 
   <!-- New field confirmation dialog -->
-  <dialog id="resetConfirmDialog" class="rounded-2xl p-0 w-[24rem] max-w-[95vw]">
+  <dialog id="resetConfirmDialog" class="rounded-2xl p-0 w-[24rem] max-w-[95vw]" aria-labelledby="resetConfirmDialogTitle">
+    <button class="dialog-exit icon-btn" type="button" data-dialog-close aria-label="Close start a new field" title="Close"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"></path></svg></button>
     <form method="dialog" class="p-5 space-y-4">
-      <div class="text-lg font-bold">Start a new field?</div>
+      <div id="resetConfirmDialogTitle" class="dialog-heading text-lg font-bold">Start a new field?</div>
       <div class="flex gap-2 justify-end">
-        <button type="button" class="icon-btn" data-surface onclick="resetConfirmDialog.close()">Cancel</button>
+        <button type="button" class="icon-btn" data-surface onclick="resetConfirmDialog.close('cancel')">Cancel</button>
         <button type="submit" class="icon-btn bg-red-600 text-white" value="confirm">New field</button>
       </div>
     </form>
   </dialog>
 
   <!-- Change row status dialog -->
-  <dialog id="changeRowDialog" class="rounded-2xl p-0 w-[22rem] max-w-[95vw]">
+  <dialog id="changeRowDialog" class="rounded-2xl p-0 w-[22rem] max-w-[95vw]" aria-labelledby="changeRowDialogTitle">
+    <button class="dialog-exit icon-btn" type="button" data-dialog-close aria-label="Close change row status" title="Close"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"></path></svg></button>
     <div class="p-5 space-y-4">
-      <div class="text-lg font-bold">Change Row Status</div>
+      <div id="changeRowDialogTitle" class="dialog-heading text-lg font-bold">Change Row Status</div>
       <div class="text-sm">
         <div class="mb-1">
           <span class="opacity-50">Row:</span>
@@ -536,25 +565,26 @@
         </div>
       </div>
       <div class="space-y-2">
-        <button type="button" class="icon-btn w-full justify-center bg-[color:var(--yellow)] text-white font-bold text-lg" data-change-status="yellow">
-          Fast
+        <button type="button" class="icon-btn w-full justify-center bg-[color:var(--red)] text-white font-bold text-lg" data-change-status="red">
+          Slow
         </button>
         <button type="button" class="icon-btn w-full justify-center bg-[color:var(--green)] text-white font-bold text-lg" data-change-status="green">
           Good
         </button>
-        <button type="button" class="icon-btn w-full justify-center bg-[color:var(--red)] text-white font-bold text-lg" data-change-status="red">
-          Slow
+        <button type="button" class="icon-btn w-full justify-center bg-[color:var(--yellow)] text-white font-bold text-lg" data-change-status="yellow">
+          Fast
         </button>
       </div>
     </div>
   </dialog>
 
   <!-- Saved fields dialog -->
-  <dialog id="savedFieldsDialog" class="rounded-2xl p-0 w-[32rem] max-w-[95vw]">
+  <dialog id="savedFieldsDialog" class="rounded-2xl p-0 w-[32rem] max-w-[95vw]" aria-labelledby="savedFieldsDialogTitle">
+    <button class="dialog-exit icon-btn" type="button" data-dialog-close aria-label="Close saved fields" title="Close"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"></path></svg></button>
     <div class="p-5 flex flex-col gap-3 h-full max-h-[85vh]">
       <div class="flex items-start justify-between gap-3">
         <div>
-          <div class="text-lg font-bold leading-tight">Saved Fields</div>
+          <div id="savedFieldsDialogTitle" class="dialog-heading text-lg font-bold leading-tight">Saved Fields</div>
           <p id="savedFieldsStorageNote" class="text-[0.75rem] opacity-60">Saved fields stay on this device.</p>
         </div>
       </div>
@@ -577,10 +607,11 @@
   </dialog>
 
   <!-- Existing local fields can be selectively added to the signed-in account. -->
-  <dialog id="uploadLocalFieldsDialog" class="rounded-2xl p-0 w-[30rem] max-w-[95vw]">
+  <dialog id="uploadLocalFieldsDialog" class="rounded-2xl p-0 w-[30rem] max-w-[95vw]" aria-labelledby="uploadLocalFieldsDialogTitle">
+    <button class="dialog-exit icon-btn" type="button" data-dialog-close aria-label="Close upload saved fields" title="Close"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"></path></svg></button>
     <form id="uploadLocalFieldsForm" class="p-5 space-y-4">
       <div>
-        <div class="text-lg font-bold">Upload saved fields?</div>
+        <div id="uploadLocalFieldsDialogTitle" class="dialog-heading text-lg font-bold">Upload saved fields?</div>
         <p class="text-sm opacity-70">Choose which fields to add to your TubeTally account. They will also remain on this phone.</p>
       </div>
       <div id="uploadLocalFieldsList" class="card p-3 space-y-2 max-h-[45vh] overflow-y-auto"></div>
@@ -592,29 +623,31 @@
   </dialog>
 
   <!-- Saved field delete confirmation -->
-  <dialog id="savedFieldDeleteDialog" class="rounded-2xl p-0 w-[24rem] max-w-[95vw]">
+  <dialog id="savedFieldDeleteDialog" class="rounded-2xl p-0 w-[24rem] max-w-[95vw]" aria-labelledby="savedFieldDeleteDialogTitle">
+    <button class="dialog-exit icon-btn" type="button" data-dialog-close aria-label="Close remove saved field" title="Close"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"></path></svg></button>
     <form method="dialog" class="p-5 space-y-4">
-      <div class="text-lg font-bold">Remove saved field?</div>
+      <div id="savedFieldDeleteDialogTitle" class="dialog-heading text-lg font-bold">Remove saved field?</div>
       <p class="text-sm opacity-70">This will remove <span id="savedFieldDeleteLabel" class="font-semibold">this field</span> from this device and, if synced, your account.</p>
       <div class="flex gap-2 justify-end">
-        <button type="button" class="icon-btn" data-surface onclick="savedFieldDeleteDialog.close()">Cancel</button>
+        <button type="button" class="icon-btn" data-surface onclick="savedFieldDeleteDialog.close('cancel')">Cancel</button>
         <button type="submit" class="icon-btn bg-red-600 text-white" value="confirm">Remove</button>
       </div>
     </form>
   </dialog>
-  <dialog id="confirmDialog" class="rounded-2xl p-0 w-[24rem] max-w-[95vw]">
+  <dialog id="confirmDialog" class="rounded-2xl p-0 w-[24rem] max-w-[95vw]" aria-labelledby="confirmDialogTitle">
+    <button class="dialog-exit icon-btn" type="button" data-dialog-close aria-label="Close confirmation" title="Close"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"></path></svg></button>
     <form method="dialog" class="p-5 space-y-4">
-      <div id="confirmDialogTitle" class="text-lg font-bold"></div>
+      <div id="confirmDialogTitle" class="dialog-heading text-lg font-bold"></div>
       <p id="confirmDialogBody" class="text-sm opacity-70"></p>
       <div class="flex gap-2 justify-end">
-        <button type="button" class="icon-btn" data-surface onclick="confirmDialog.close()">Cancel</button>
+        <button type="button" class="icon-btn" data-surface onclick="confirmDialog.close('cancel')">Cancel</button>
         <button type="submit" id="confirmDialogPrimary" class="icon-btn bg-red-600 text-white" value="confirm"></button>
       </div>
     </form>
   </dialog>
 
   <!-- Credentials are submitted directly to Netlify Identity, not stored by Tube Tally. -->
-  <dialog id="authDialog" class="rounded-2xl p-0 w-[25rem] max-w-[95vw]">
+  <dialog id="authDialog" class="rounded-2xl p-0 w-[25rem] max-w-[95vw]" aria-labelledby="authTitle">
     <div class="p-5 space-y-4">
       <div class="flex items-start gap-3">
         <img src="./icon.svg" alt="" class="w-10 h-10" />
@@ -971,13 +1004,21 @@
       }
     }
 
+    // A consistent X closes dialogs as a cancellation, never as a confirmation.
+    document.querySelectorAll('dialog [data-dialog-close]').forEach(button => {
+      button.addEventListener('click', () => {
+        const dialog = button.closest('dialog');
+        if (dialog?.open) dialog.close('cancel');
+      });
+    });
+
     function attachAutoClose(dialog) {
       if (!dialog) return;
       dialog.addEventListener('click', (event) => {
         if (!dialog.open) return;
         const rect = dialog.getBoundingClientRect();
         const inside = event.clientX >= rect.left && event.clientX <= rect.right && event.clientY >= rect.top && event.clientY <= rect.bottom;
-        if (!inside) dialog.close();
+        if (!inside) dialog.close('cancel');
       });
     }
 
@@ -1346,6 +1387,7 @@
       const entry = savedFields.find(f => f.id === id);
       if (!entry || !savedFieldDeleteDialog) return;
       pendingDeleteSavedFieldId = id;
+      savedFieldDeleteDialog.returnValue = '';
       const label = entry.fieldName || 'this field';
       const labelEl = document.getElementById('savedFieldDeleteLabel');
       if (labelEl) labelEl.textContent = label;
@@ -1806,6 +1848,7 @@
     // Reset button: show confirmation dialog instead of immediately resetting
     const resetConfirmDialog = document.getElementById('resetConfirmDialog');
     $('#resetBtn').onclick = () => {
+      resetConfirmDialog.returnValue = '';
       resetConfirmDialog.showModal();
     };
     resetConfirmDialog.addEventListener('close', (e) => {
