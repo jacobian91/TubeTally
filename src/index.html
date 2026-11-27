@@ -733,6 +733,33 @@
     </div>
   </dialog>
 
+  <!-- Share a snapshot as an editable link or a human-readable text report. -->
+  <dialog id="shareDialog" class="rounded-2xl p-0 w-[28rem] max-w-[95vw]" aria-labelledby="shareDialogTitle">
+    <button class="dialog-exit icon-btn" type="button" data-dialog-close aria-label="Close sharing" title="Close">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"></path></svg>
+    </button>
+    <div class="p-5 space-y-4">
+      <div id="shareDialogTitle" class="dialog-heading text-lg font-bold">Share Field</div>
+      <div class="space-y-2">
+        <p class="text-sm opacity-75">Editable link</p>
+        <div class="grid grid-cols-2 gap-2">
+          <button id="shareLinkBtn" type="button" class="icon-btn justify-center bg-[color:var(--green)] text-white font-bold">Share link</button>
+          <button id="copyShareLinkBtn" type="button" class="icon-btn justify-center" data-surface>Copy link</button>
+        </div>
+        <p class="text-xs opacity-60">Opens an independent editable field in Tube Tally.</p>
+      </div>
+      <div class="border-t border-gray-200 dark:border-gray-700 pt-3 space-y-2">
+        <p class="text-sm opacity-75">Text report</p>
+        <pre id="shareTextPreview" class="card p-3 text-xs whitespace-pre-wrap break-words max-h-36 overflow-y-auto select-text" aria-label="Text report preview"></pre>
+        <div class="grid grid-cols-2 gap-2">
+          <button id="shareTextBtn" type="button" class="icon-btn justify-center bg-[color:var(--green)] text-white font-bold">Share text</button>
+          <button id="copyShareTextBtn" type="button" class="icon-btn justify-center" data-surface>Copy text</button>
+        </div>
+      </div>
+      <p id="shareStatus" class="text-xs opacity-75" role="status" aria-live="polite"></p>
+    </div>
+  </dialog>
+
   <!-- Toast (non-blocking) -->
   <div id="toast" role="status" aria-live="polite">Copied to clipboard</div>
 
@@ -1654,22 +1681,51 @@
       return false;
     }
 
-    // Share: native sheet when available; else copy silently with toast (no blocking prompts)
-    async function shareReport(data = state) { 
-      const url = buildShareUrl(data);
-      const text = buildReport(data) + '\n\n' + url;
+    // Share transfers a snapshot, not shared ownership. Keep link and text choices explicit.
+    let pendingShareData = null;
+    function shareReport(data = state) {
+      pendingShareData = {
+        fieldName: data.fieldName || '',
+        startedAt: data.startedAt || '',
+        rows: { ...(data.rows || {}) },
+        currentRow: data.currentRow || nextRowFromRows(data.rows),
+      };
+      $('#shareTextPreview').textContent = buildReport(pendingShareData);
+      $('#shareStatus').textContent = '';
+      const dialog = $('#shareDialog');
+      dialog.returnValue = '';
+      dialog.showModal();
+    }
+
+    async function copySharedReport(format) {
+      if (!pendingShareData) return false;
+      const value = format === 'text' ? buildReport(pendingShareData) : buildShareUrl(pendingShareData);
+      try {
+        await navigator.clipboard.writeText(value);
+        $('#shareDialog').close('copied');
+        showToast(format === 'text' ? 'Text report copied' : 'Link copied');
+        return true;
+      } catch {
+        $('#shareStatus').textContent = 'Unable to copy. Use the Share option instead.';
+        return false;
+      }
+    }
+
+    async function sendSharedReport(format) {
+      if (!pendingShareData) return;
+      const payload = format === 'text'
+        ? { title: 'TubeTally Field Report', text: buildReport(pendingShareData) }
+        : { title: 'TubeTally Field', url: buildShareUrl(pendingShareData) };
       if (navigator.share) {
         try {
-          await navigator.share({ title: 'TubeTally Report', text: 'TubeTally field report', url });
+          await navigator.share(payload);
+          $('#shareDialog').close('shared');
           return;
         } catch (error) {
           if (error?.name === 'AbortError') return;
         }
-      } 
-      try { 
-        await navigator.clipboard.writeText(text); 
-        showToast('Copied to clipboard'); 
-      } catch { /* ignore */ } 
+      }
+      await copySharedReport(format);
     }
 
     function showToast(msg) { const el = $('#toast'); el.textContent = msg; el.classList.add('show'); setTimeout(() => el.classList.remove('show'), 1500); }
@@ -1763,6 +1819,13 @@
     if (uploadLocalFieldsCancelEl) uploadLocalFieldsCancelEl.addEventListener('click', () => uploadLocalFieldsDialogEl?.close('cancel'));
     const editSavedFieldBtnEl = document.getElementById('editSavedFieldBtn');
     if (editSavedFieldBtnEl) editSavedFieldBtnEl.addEventListener('click', () => { ensureAudio(); beginEditingSavedField(); });
+    const shareDialog = document.getElementById('shareDialog');
+    attachAutoClose(shareDialog);
+    $('#shareLinkBtn').addEventListener('click', () => { void sendSharedReport('link'); });
+    $('#shareTextBtn').addEventListener('click', () => { void sendSharedReport('text'); });
+    $('#copyShareLinkBtn').addEventListener('click', () => { void copySharedReport('link'); });
+    $('#copyShareTextBtn').addEventListener('click', () => { void copySharedReport('text'); });
+
     const savedFieldsListEl = document.getElementById('savedFieldsList');
     if (savedFieldsListEl) {
       savedFieldsListEl.addEventListener('click', (event) => {
