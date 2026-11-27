@@ -35,7 +35,7 @@ test('Spanish localization parses and translates critical controls', () => {
 
 test('shared links are passed as URLs, and query and legacy fragment links are accepted', () => {
   assert.match(html, /url\.searchParams\.set\('d'/);
-  assert.match(html, /navigator\.share\(\{[^}]*url\s*\}/);
+  assert.match(html, /await navigator\.share\(payload\)/);
   assert.match(html, /new URLSearchParams\(window\.location\.search\)\.get\('d'\)/);
   assert.match(html, /fullHash\.substring\(fullHash\.indexOf\('d='\)/);
   assert.match(html, /cbUrl\.searchParams\.set\('cb'/);
