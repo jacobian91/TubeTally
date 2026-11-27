@@ -33,7 +33,7 @@ try {
   await page.waitForFunction(() => Object.hasOwn(window, 'tubeTallyUser'));
 
   // Check visible toolbar buttons on the smallest supported phone sizes.
-  for (const width of [320, 360, 390, 720, 1024]) {
+  for (const width of [320, 360, 390, 414, 600, 720, 760, 1024]) {
     await page.setViewportSize({ width, height: 844 });
     const layout = await page.evaluate(() => {
       const ids = ['savedFieldsBtn', 'resetBtn', 'settingsBtn', 'accountBtn'];
@@ -42,9 +42,25 @@ try {
         return { id, left: r.left, right: r.right, top: r.top, bottom: r.bottom };
       });
       const header = document.querySelector('.topbar').getBoundingClientRect();
+      const display = getComputedStyle(document.querySelector('.topbar')).display;
       const brand = document.querySelector('.topbar-brand').getBoundingClientRect();
-      return { width: window.innerWidth, headerBottom: header.bottom, brand: { left: brand.left, right: brand.right, top: brand.top, bottom: brand.bottom }, rects };
+      return { width: window.innerWidth, headerBottom: header.bottom, display,
+        brand: { left: brand.left, right: brand.right, top: brand.top, bottom: brand.bottom }, rects };
     });
+    assert.equal(layout.display, 'grid', `Toolbar must use grid, not squashed flexbox at ${width}px`);
+    if (width <= 760) {
+      const actions = layout.rects.slice(0, 3);
+      for (const button of actions) {
+        assert(Math.abs(button.top - actions[0].top) <= 2,
+          `Fields, New and Settings must be on the same row at ${width}px`);
+        assert(Math.abs((button.right - button.left) - (actions[0].right - actions[0].left)) <= 2,
+          `Toolbar action buttons must be equally sized at ${width}px`);
+        assert(button.top >= layout.brand.bottom - 1,
+          `Action buttons must be below the brand, not squeezed between brand and account at ${width}px`);
+      }
+      assert(Math.abs(layout.rects[3].top - layout.brand.top) <= 4,
+        `Account avatar must align with brand at ${width}px`);
+    }
     for (const rect of layout.rects) {
       assert(rect.left >= 0 && rect.right <= layout.width + 1, `${rect.id} must stay on-screen at ${width}px`);
       assert(rect.bottom <= layout.headerBottom + 1, `${rect.id} must be contained in header at ${width}px`);
@@ -62,7 +78,7 @@ try {
       }
     }
   }
-  console.log('PASS: toolbar is usable without overlap at 320, 360, 390, 720, and 1024px');
+  console.log('PASS: grid toolbar has one aligned action row and no overlap at 320–1024px');
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.locator('#accountBtn').click();
@@ -80,7 +96,7 @@ try {
   }).then(r => r.status));
   assert.equal(invalidInvite, 400, 'Signup invitation endpoint validates email');
   await page.locator('#authClose').click();
-  for (const width of [320, 360, 390, 720]) {
+  for (const width of [320, 360, 390, 414, 720]) {
     await page.setViewportSize({ width, height: 844 });
     const signedIn = await page.evaluate(() => {
       const select = selector => {
@@ -104,9 +120,15 @@ try {
       `Signed-in account must not overlap brand at ${width}px`);
     assert(signedIn.status.right <= signedIn.width + 1,
       `Sync status must remain on-screen at ${width}px`);
+    assert(signedIn.account.right - signedIn.account.left <= 50,
+      `Signed-in account should show avatar only at ${width}px`);
+    assert(signedIn.status.top < signedIn.header.bottom - 30,
+      `Sync status should sit below the app name rather than under the action buttons at ${width}px`);
     assert(signedIn.account.bottom <= signedIn.header.bottom + 1,
       `Account button must fit in the header at ${width}px`);
   }
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.screenshot({ path: '/tmp/tubetally-mobile-header.png' });
   console.log('PASS: account shows signup-only invitations and no organizations; signed-in toolbar fits');
 
   const fieldName = `Personal UI test ${Date.now()}`;
@@ -114,6 +136,25 @@ try {
   await page.locator('#fieldNameDialogInput').fill(fieldName);
   await page.locator('#fieldNameForm button').last().click();
   await page.locator('#btnGood').click();
+  // A row press vibrates and opens the editor together, never on a brief tap.
+  await page.evaluate(() => {
+    window.__editFeedback = [];
+    navigator.vibrate = duration => { window.__editFeedback.push(duration); return true; };
+  });
+  const firstHistoryRow = page.locator('#history [data-row="1"]');
+  await firstHistoryRow.hover();
+  await page.mouse.down();
+  await page.waitForTimeout(350);
+  assert.equal(await page.locator('#changeRowDialog[open]').count(), 0,
+    'Short hold must not open row editor');
+  await page.waitForTimeout(210);
+  assert.equal(await page.locator('#changeRowDialog[open]').count(), 1,
+    'Row editor must open after the 500ms hold');
+  assert.deepEqual(await page.evaluate(() => window.__editFeedback), [18],
+    'One haptic pulse must occur at editor opening');
+  await page.mouse.up();
+  await page.locator('#changeRowDialog [data-change-status="green"]').click();
+  console.log('PASS: edit dialog and haptic activate together at 500ms');
   createdRunId = await page.evaluate(() => JSON.parse(localStorage.getItem('tubetally.v1'))?.runId);
   await page.locator('#savedFieldsBtn').click();
   await page.locator('#saveFieldBtn').click();
