@@ -99,6 +99,39 @@ try {
   }).then(r => r.status));
   assert.equal(invalidInvite, 400, 'Signup invitation endpoint validates email');
   await page.locator('#authClose').click();
+
+  // Audit all dialogs in the rendered app, not just the markup.
+  const dialogIds = await page.locator('dialog').evaluateAll(dialogs => dialogs.map(d => d.id));
+  assert.equal(dialogIds.length, 9, 'All nine dialogs should be tested');
+  for (const id of dialogIds) {
+    await page.evaluate(dialogId => {
+      const dialog = document.getElementById(dialogId);
+      // Force a prior confirmation result to catch accidental destructive closes.
+      dialog.returnValue = 'confirm';
+      dialog.showModal();
+    }, id);
+    const closeButton = page.locator(id === 'authDialog' ? '#authClose' : `#${id} [data-dialog-close]`);
+    await closeButton.waitFor({ state: 'visible' });
+    const geometry = await closeButton.evaluate(button => {
+      const bounds = button.getBoundingClientRect();
+      const modal = button.closest('dialog').getBoundingClientRect();
+      return { width: bounds.width, height: bounds.height, left: bounds.left,
+        right: bounds.right, top: bounds.top, modalLeft: modal.left,
+        modalRight: modal.right, modalTop: modal.top };
+    });
+    assert(geometry.width >= 36 && geometry.height >= 36,
+      `${id} needs a touch-sized, visible close button`);
+    assert(geometry.left >= geometry.modalLeft - 1 &&
+      geometry.right <= geometry.modalRight + 1 &&
+      geometry.top >= geometry.modalTop - 1,
+      `${id} close button must remain within the dialog header`);
+    await closeButton.click();
+    await page.locator(`#${id}[open]`).waitFor({ state: 'hidden' });
+    assert.equal(await page.locator(`#${id}`).evaluate(dialog => dialog.returnValue), 'cancel',
+      `${id} close button must cancel, not confirm`);
+  }
+  console.log('PASS: every dialog has a working, touch-sized X that cancels safely');
+
   for (const width of [320, 360, 390, 414, 720]) {
     await page.setViewportSize({ width, height: 844 });
     const signedIn = await page.evaluate(() => {
@@ -156,8 +189,22 @@ try {
   assert.deepEqual(await page.evaluate(() => window.__editFeedback), [18],
     'One haptic pulse must occur at editor opening');
   await page.mouse.up();
-  await page.locator('#changeRowDialog [data-change-status="green"]').click();
-  console.log('PASS: edit dialog and haptic activate together at 500ms');
+  assert.deepEqual(await page.locator('#changeRowDialog [data-change-status]').evaluateAll(
+    buttons => buttons.map(button => button.dataset.changeStatus)),
+    ['red', 'green', 'yellow'], 'Editor must show Slow / Good / Fast in main-button order');
+  await page.locator('#changeRowDialog [data-dialog-close]').click();
+  assert.equal(await page.locator('#changeRowDialog[open]').count(), 0);
+  assert.equal(await page.locator('#history [data-row="1"] .history-badge').textContent(), 'Good',
+    'Exiting row edit must not change recorded status');
+  // Reopen through the real hold gesture and confirm the choices remain functional.
+  await firstHistoryRow.hover();
+  await page.mouse.down();
+  await page.waitForTimeout(540);
+  await page.mouse.up();
+  await page.locator('#changeRowDialog [data-change-status="red"]').click();
+  assert.equal(await page.locator('#history [data-row="1"] .history-badge').textContent(), 'Slow',
+    'Selecting Slow must update the recorded status');
+  console.log('PASS: edit haptic and dialog coincide at 500ms; choices are ordered Slow / Good / Fast');
   createdRunId = await page.evaluate(() => JSON.parse(localStorage.getItem('tubetally.v1'))?.runId);
   await page.locator('#savedFieldsBtn').click();
   await page.locator('#saveFieldBtn').click();
