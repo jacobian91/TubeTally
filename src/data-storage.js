@@ -161,10 +161,7 @@ async function sendQueueItem(item) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(compactSnapshot(item.snapshot)),
       };
-  const scopeQuery = item.organizationId
-    ? `?organizationId=${encodeURIComponent(item.organizationId)}`
-    : '';
-  const url = item.operation === 'delete' ? `${API_URL}/${item.runId}${scopeQuery}` : API_URL;
+  const url = item.operation === 'delete' ? `${API_URL}/${item.runId}` : API_URL;
   const response = await fetch(url, { ...request, credentials: 'same-origin' });
   if (!response.ok && !(item.operation === 'delete' && response.status === 404)) {
     const body = await response.json().catch(() => ({}));
@@ -196,6 +193,11 @@ async function flushQueue() {
 
     for (let index = 0; index < pending.length; index += 1) {
       const item = pending[index];
+      // Ignore unsent data from now-removed beta organization scopes.
+      if (item.organizationId || item.snapshot?.organizationId) {
+        await remove('syncQueue', item.queueId);
+        continue;
+      }
       try {
         await sendQueueItem(item);
         await remove('syncQueue', item.queueId);
@@ -228,7 +230,6 @@ async function queueSnapshot(snapshot, localFieldId = null) {
     queueId: `snapshot:${currentUser.id}:${snapshot.snapshotId}`,
     operation: 'snapshot',
     userId: currentUser.id,
-    organizationId: snapshot.organizationId || null,
     localFieldId,
     snapshot: compactSnapshot(snapshot),
     queuedAt: new Date().toISOString(),
@@ -239,15 +240,14 @@ async function queueSnapshot(snapshot, localFieldId = null) {
   return true;
 }
 
-async function queueDelete(runId, organizationId = null) {
+async function queueDelete(runId) {
   if (!currentUser?.id || !runId) return false;
-  const queueId = `delete:${currentUser.id}:${organizationId || 'personal'}:${runId}`;
+  const queueId = `delete:${currentUser.id}:personal:${runId}`;
   await put('syncQueue', {
     queueId,
     operation: 'delete',
     userId: currentUser.id,
     runId,
-    organizationId,
     queuedAt: new Date().toISOString(),
   });
   setSyncState(navigator.onLine ? 'syncing' : 'offline', 1);
@@ -256,11 +256,10 @@ async function queueDelete(runId, organizationId = null) {
   return true;
 }
 
-async function refreshRemoteFields(organizationId = null) {
+async function refreshRemoteFields() {
   if (!currentUser?.id || !navigator.onLine) return;
   try {
-    const scopeQuery = organizationId ? `?organizationId=${encodeURIComponent(organizationId)}` : '';
-    const response = await fetch(`${API_URL}${scopeQuery}`, {
+    const response = await fetch(API_URL, {
       headers: { Accept: 'application/json' },
       credentials: 'same-origin',
       cache: 'no-store',
@@ -269,7 +268,6 @@ async function refreshRemoteFields(organizationId = null) {
     const body = await response.json();
     emit('tubetally:remote-fields', {
       fields: (body.fields || []).map(inflateRemoteField),
-      organizationId,
     });
   } catch (error) {
     console.warn('Unable to refresh account fields', error);
@@ -325,7 +323,15 @@ async function dedupeStoredFields(fields) {
 
 async function initialize(cachedFields = []) {
   await openDatabase();
-  for (const field of cachedFields) await put('localFields', field);
+  for (const field of await all('localFields')) {
+    if (field.organizationId) await remove('localFields', field.id);
+  }
+  for (const item of await all('syncQueue')) {
+    if (item.organizationId || item.snapshot?.organizationId) await remove('syncQueue', item.queueId);
+  }
+  for (const field of cachedFields) {
+    if (!field.organizationId) await put('localFields', field);
+  }
   const fields = await dedupeStoredFields(
     (await all('localFields')).filter(field => !field.accountUserId)
   );
