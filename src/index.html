@@ -1750,7 +1750,7 @@
     const uploadLocalFieldsFormEl = document.getElementById('uploadLocalFieldsForm');
     if (uploadLocalFieldsFormEl) uploadLocalFieldsFormEl.addEventListener('submit', uploadSelectedLocalFields);
     const uploadLocalFieldsCancelEl = document.getElementById('uploadLocalFieldsCancel');
-    if (uploadLocalFieldsCancelEl) uploadLocalFieldsCancelEl.addEventListener('click', () => uploadLocalFieldsDialogEl?.close());
+    if (uploadLocalFieldsCancelEl) uploadLocalFieldsCancelEl.addEventListener('click', () => uploadLocalFieldsDialogEl?.close('cancel'));
     const editSavedFieldBtnEl = document.getElementById('editSavedFieldBtn');
     if (editSavedFieldBtnEl) editSavedFieldBtnEl.addEventListener('click', () => { ensureAudio(); beginEditingSavedField(); });
     const savedFieldsListEl = document.getElementById('savedFieldsList');
