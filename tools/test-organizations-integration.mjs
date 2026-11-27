@@ -13,7 +13,9 @@ for (const name of required) {
 }
 
 const baseUrl = process.env.TUBETALLY_E2E_URL.replace(/\/$/, '');
-const testOrganizationName = 'TubeTally Integration Test';
+// Never operate on an existing/shared organization: tests remove the invited member.
+// Every invocation creates its own isolated organization on the preview database branch.
+const testOrganizationName = `TubeTally CI ${crypto.randomUUID()}`;
 
 async function identityToken(email, password) {
   const response = await fetch(`${baseUrl}/.netlify/identity/token`, {
@@ -46,13 +48,9 @@ async function request(token, path, { method = 'GET', body } = {}) {
 const adminToken = await identityToken(process.env.TUBETALLY_E2E_ADMIN_EMAIL, process.env.TUBETALLY_E2E_ADMIN_PASSWORD);
 const memberToken = await identityToken(process.env.TUBETALLY_E2E_MEMBER_EMAIL, process.env.TUBETALLY_E2E_MEMBER_PASSWORD);
 
-const initial = await request(adminToken, '/api/organizations');
-let organization = initial.organizations.find((item) => item.name === testOrganizationName);
-if (!organization) {
-  organization = await request(adminToken, '/api/organizations', {
-    method: 'POST', body: { name: testOrganizationName },
-  });
-}
+const organization = await request(adminToken, '/api/organizations', {
+  method: 'POST', body: { name: testOrganizationName },
+});
 assert.equal(organization.role, 'admin', 'The test admin must administer the integration-test organization.');
 
 let membership = await request(adminToken, `/api/organizations/${organization.id}`);

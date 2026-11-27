@@ -47,5 +47,65 @@ test('field scopes, row navigation and long press hooks are wired', () => {
   assert.match(html, /fieldViz'\)\.addEventListener\('click'/);
   assert.match(html, /openChangeRowDialog\(n, state\.rows\[n\]\)/);
   assert.match(html, /holdTimer = setTimeout/);
+  assert.match(html, /Hold 0\.75s to edit/);
   assert.match(workerSource, /'\.\/i18n\.js'/);
+});
+
+test('history rows edit only after a 750ms hold, and cancel on tap or scroll', () => {
+  const start = html.indexOf('        if (!viewMode) {\n          let holdTimer = null;');
+  const end = html.indexOf('\n        h.appendChild(d);', start);
+  assert.ok(start >= 0 && end > start, 'history interaction handlers exist');
+  const listeners = {};
+  const timers = new Map();
+  let timerId = 0;
+  const edits = [];
+  const row = {
+    style: {},
+    addEventListener(type, callback) { listeners[type] = callback; },
+    setAttribute() {},
+  };
+  const context = createContext({
+    d: row, viewMode: false, n: 5, state: { rows: { 5: 'green' } },
+    openChangeRowDialog(number, status) { edits.push([number, status]); },
+    setTimeout(callback, ms) {
+      assert.equal(ms, 750);
+      const id = ++timerId;
+      timers.set(id, callback);
+      return id;
+    },
+    clearTimeout(id) { timers.delete(id); },
+  });
+  new Script(html.slice(start, end)).runInContext(context);
+  const pointer = (x = 10, y = 10) => ({ button: 0, isPrimary: true, clientX: x, clientY: y });
+  const fireTimer = () => {
+    for (const [id, callback] of [...timers]) { timers.delete(id); callback(); }
+  };
+
+  assert.equal(listeners.click, undefined, 'short click must not edit');
+  listeners.pointerdown(pointer());
+  listeners.pointerup(pointer());
+  fireTimer();
+  assert.equal(edits.length, 0, 'short tap must not edit');
+  listeners.pointerdown(pointer());
+  listeners.pointermove(pointer(10, 30));
+  fireTimer();
+  assert.equal(edits.length, 0, 'scrolling must cancel hold');
+  listeners.pointerdown(pointer());
+  listeners.pointercancel(pointer());
+  fireTimer();
+  assert.equal(edits.length, 0, 'cancel must stop hold');
+  listeners.pointerdown(pointer());
+  fireTimer();
+  assert.deepEqual(edits, [[5, 'green']], 'long hold opens editor');
+});
+
+test('iPhone install area shows Safari Home Screen instructions, not a disabled install button', () => {
+  assert.match(html, /id="iosInstallInstructions"/);
+  assert.match(html, /Select Add to Home Screen\./);
+  assert.match(html, /Turn on Open as Web App/);
+  assert.match(html, /isAppleMobile && state !== 'installed'/);
+  assert.match(html, /installBtnEl\.classList\.toggle\('hidden', isAppleMobile\)/);
+  assert.match(html, /isSafariOnAppleMobile/);
+  assert.equal(languageSource.includes('Selecciona Añadir a pantalla de inicio.'), true);
+  assert.match(workerSource, /tubetally-runtime-v14/);
 });
