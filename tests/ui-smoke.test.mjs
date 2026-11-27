@@ -51,11 +51,11 @@ test('personal fields, independent sharing, responsive header and long-press hoo
   assert.match(html, /fieldViz'\)\.addEventListener\('click'/);
   assert.match(html, /openChangeRowDialog\(n, state\.rows\[n\]\)/);
   assert.match(html, /holdTimer = setTimeout/);
-  assert.match(html, /Hold 0\.75s to edit/);
+  assert.match(html, /Hold 0\.5s to edit/);
   assert.match(workerSource, /'\.\/i18n\.js'/);
 });
 
-test('history rows edit only after a 750ms hold, and cancel on tap or scroll', () => {
+test('history rows open edit with haptic at 500ms, cancel on tap or scroll', () => {
   const start = html.indexOf('        if (!viewMode) {\n          let holdTimer = null;');
   const end = html.indexOf('\n        h.appendChild(d);', start);
   assert.ok(start >= 0 && end > start, 'history interaction handlers exist');
@@ -63,6 +63,7 @@ test('history rows edit only after a 750ms hold, and cancel on tap or scroll', (
   const timers = new Map();
   let timerId = 0;
   const edits = [];
+  const vibrations = [];
   const row = {
     style: {},
     addEventListener(type, callback) { listeners[type] = callback; },
@@ -70,9 +71,10 @@ test('history rows edit only after a 750ms hold, and cancel on tap or scroll', (
   };
   const context = createContext({
     d: row, viewMode: false, n: 5, state: { rows: { 5: 'green' } },
+    vib(duration) { vibrations.push(duration); },
     openChangeRowDialog(number, status) { edits.push([number, status]); },
     setTimeout(callback, ms) {
-      assert.equal(ms, 750);
+      assert.equal(ms, 500);
       const id = ++timerId;
       timers.set(id, callback);
       return id;
@@ -101,6 +103,7 @@ test('history rows edit only after a 750ms hold, and cancel on tap or scroll', (
   listeners.pointerdown(pointer());
   fireTimer();
   assert.deepEqual(edits, [[5, 'green']], 'long hold opens editor');
+  assert.deepEqual(vibrations, [18], 'haptic fires once at the exact same hold threshold as dialog');
 });
 
 test('iPhone install area shows Safari Home Screen instructions, not a disabled install button', () => {
