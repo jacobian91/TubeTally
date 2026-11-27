@@ -690,15 +690,16 @@
 
     // ---------- State ----------
     const newId = () => crypto.randomUUID();
-    const initial = { fieldName: '', organizationId: '', startedAt: '', currentRow: 1, rows: {}, actions: [], runId: '', revision: 0, dirtyChanges: 0, prefs: { haptic: true, beep: true, wake: true, dark: false, leftHanded: false, language: 'en' } };
-    function freshState(prefs = initial.prefs, organizationId = '') {
-      return { ...initial, organizationId, runId: newId(), startedAt: nowLocalISO(), prefs: { ...prefs }, rows: {}, actions: [] };
+    const initial = { fieldName: '', startedAt: '', currentRow: 1, rows: {}, actions: [], runId: '', revision: 0, dirtyChanges: 0, prefs: { haptic: true, beep: true, wake: true, dark: false, leftHanded: false, language: 'en' } };
+    function freshState(prefs = initial.prefs) {
+      return { ...initial, runId: newId(), startedAt: nowLocalISO(), prefs: { ...prefs }, rows: {}, actions: [] };
     }
     function hydrateState(value) {
       const base = freshState(value?.prefs || initial.prefs);
+      const { organizationId: _legacyScope, ...personalState } = value || {};
       return {
         ...base,
-        ...(value || {}),
+        ...personalState,
         runId: value?.runId || newId(),
         revision: Number.isSafeInteger(value?.revision) ? value.revision : 0,
         dirtyChanges: Number.isSafeInteger(value?.dirtyChanges) ? value.dirtyChanges : 0,
@@ -716,7 +717,6 @@
     let currentlyEditingSavedFieldId = null;
     let savedFields = loadSavedFields();
     let savedFieldsDialog = null;
-    let savedFieldsScope = 'all';
     let savedFieldDeleteDialog = null;
     let pendingDeleteSavedFieldId = null;
     let pendingFieldNameAction = null;
@@ -739,9 +739,14 @@
     }
 
     // ---------- Saved fields storage ----------
-    function loadSavedFields() { try { return JSON.parse(localStorage.getItem(SAVED_FIELDS_KEY)) || []; } catch { return []; } }
+    function loadSavedFields() {
+      try {
+        const fields = JSON.parse(localStorage.getItem(SAVED_FIELDS_KEY)) || [];
+        return Array.isArray(fields) ? fields.filter(field => !field.organizationId) : [];
+      } catch { return []; }
+    }
     function persistSavedFields() {
-      const deviceFields = savedFields.filter(field => !field.accountUserId);
+      const deviceFields = savedFields.filter(field => !field.accountUserId && !field.organizationId);
       try { localStorage.setItem(SAVED_FIELDS_KEY, JSON.stringify(deviceFields.slice(0, MAX_LOCALSTORAGE_FIELD_CACHE))); } catch { }
       for (const field of savedFields) void window.tubeTallyData?.saveLocalField(field);
     }
@@ -777,7 +782,6 @@
         snapshotId: newId(),
         runId,
         snapshotType,
-        organizationId: source.organizationId || null,
         revision: Number.isSafeInteger(source.revision) ? source.revision : 0,
         payload: snapshotPayload(source, snapshotType === 'manual' ? (source.savedAt || nowLocalISO()) : '')
       };
@@ -794,28 +798,24 @@
       if (shouldAutosave) void queueFieldSnapshot('autosave', state);
     }
 
-    function mergeRemoteFields(remoteFields = [], cached = false, organizationId = null) {
+    function mergeRemoteFields(remoteFields = [], cached = false) {
       const currentAccountId = syncUser?.id;
       if (!cached && currentAccountId) {
         const remoteRunIds = new Set(remoteFields.map(fieldRunId).filter(Boolean));
-        const staleAccountFields = savedFields.filter(field => field.accountUserId === currentAccountId
-          && (field.organizationId || null) === (organizationId || null)
-          && !remoteRunIds.has(fieldRunId(field)));
+        const staleAccountFields = savedFields.filter(field =>
+          field.accountUserId === currentAccountId && !remoteRunIds.has(fieldRunId(field)));
         for (const field of staleAccountFields) void window.tubeTallyData?.deleteLocalField(field.id);
         savedFields = savedFields.filter(field => field.accountUserId !== currentAccountId
-          || (field.organizationId || null) !== (organizationId || null)
           || remoteRunIds.has(fieldRunId(field)));
       }
       for (const remote of remoteFields) {
         const runId = fieldRunId(remote);
         if (!runId) continue;
-        const existingIndex = savedFields.findIndex(field => fieldRunId(field) === runId
-          && (field.organizationId || null) === (organizationId || remote.organizationId || null));
+        const existingIndex = savedFields.findIndex(field => fieldRunId(field) === runId);
         if (existingIndex >= 0 && savedFields[existingIndex].syncPending) continue;
         const existing = existingIndex >= 0 ? savedFields[existingIndex] : null;
         const merged = {
           ...remote,
-          organizationId: organizationId || remote.organizationId || null,
           id: existing?.id || remote.id || runId,
           runId,
           cloudBacked: true,
@@ -826,7 +826,8 @@
         if (existingIndex >= 0) savedFields.splice(existingIndex, 1, merged);
         else savedFields.push(merged);
       }
-      savedFields.sort((a, b) => String(b.serverSavedAt || b.savedAt || '').localeCompare(String(a.serverSavedAt || a.savedAt || '')));
+      savedFields.sort((a, b) =>
+        String(b.serverSavedAt || b.savedAt || '').localeCompare(String(a.serverSavedAt || a.savedAt || '')));
       persistSavedFields();
       renderSavedFieldsList();
       updateCloudUi();
@@ -1069,35 +1070,21 @@
       return totals;
     }
 
-    function refreshSavedFieldsScopes() {
-      const select = document.getElementById('savedFieldsScopeSelect');
-      if (!select) return;
-      const chosen = savedFieldsScope;
-      select.replaceChildren(new Option('All fields', 'all'), new Option('Personal fields', 'personal'));
-      for (const org of window.tubeTallyOrganizations?.list?.() || []) select.add(new Option(org.name, org.id));
-      savedFieldsScope = Array.from(select.options).some(option => option.value === chosen) ? chosen : 'all';
-      select.value = savedFieldsScope;
-    }
-    function openSavedFieldsForScope(scope = 'all') {
-      savedFieldsScope = scope;
-      refreshSavedFieldsScopes();
+    function openSavedFields() {
       renderSavedFieldsList();
       if (!savedFieldsDialog?.open) savedFieldsDialog?.showModal();
-      if (scope !== 'all' && scope !== 'personal') void window.tubeTallyData?.refreshRemoteFields?.(scope);
-      else if (syncUser) void window.tubeTallyData?.refreshRemoteFields?.();
+      if (syncUser) void window.tubeTallyData?.refreshRemoteFields?.();
     }
 
     function renderSavedFieldsList() {
       const list = document.getElementById('savedFieldsList');
       if (!list) return;
       list.innerHTML = '';
-      const visibleFields = savedFields.filter(field =>
-        savedFieldsScope === 'all' || (savedFieldsScope === 'personal'
-          ? !field.organizationId : field.organizationId === savedFieldsScope));
+      const visibleFields = savedFields;
       if (!visibleFields.length) {
         const empty = document.createElement('div');
         empty.className = 'saved-field-empty';
-        empty.textContent = savedFieldsScope === 'all' ? 'No saved fields yet' : 'No fields in this location yet';
+        empty.textContent = 'No saved fields yet';
         list.appendChild(empty);
         return;
       }
@@ -1166,9 +1153,6 @@
           </div>
           <div class="text-[0.7rem] opacity-60 mt-1">${safeStatusLabel}</div>
         `;
-        if (field.organizationId && window.tubeTallyOrganizations?.getRole(field.organizationId) !== 'admin') {
-          item.querySelector('[data-action="delete"]')?.remove();
-        }
         list.appendChild(item);
       }
     }
@@ -1286,7 +1270,6 @@
         id: editingId || runId,
         runId,
         fieldName: state.fieldName || `Field ${savedFields.length + 1}`,
-        organizationId: state.organizationId || null,
         startedAt: state.startedAt || nowLocalISO(),
         savedAt: nowLocalISO(),
         rows: { ...state.rows },
@@ -1313,7 +1296,7 @@
       savedFields.splice(idx, 1);
       persistSavedFields();
       void window.tubeTallyData?.deleteLocalField(removed.id);
-      if (removed.cloudBacked || removed.syncPending) void window.tubeTallyData?.queueDelete(fieldRunId(removed), removed.organizationId || null);
+      if (removed.cloudBacked || removed.syncPending) void window.tubeTallyData?.queueDelete(fieldRunId(removed));
       if (viewMode && viewModeSource === 'savedField' && viewingSavedFieldId === id) {
         toggleViewMode();
       } else {
@@ -1348,7 +1331,6 @@
         ...initial,
         runId: fieldRunId(entry) || newId(),
         fieldName: entry.fieldName || '',
-        organizationId: entry.organizationId || '',
         startedAt: entry.startedAt || '',
         rows: { ...entry.rows },
         actions: [],
@@ -1603,7 +1585,7 @@
       savedFieldReturnState = null;
       savedFieldReturnMeta = null;
       currentlyEditingSavedFieldId = null;
-      state = freshState(prefsCopy, state.organizationId || '');
+      state = freshState(prefsCopy);
       try { localStorage.removeItem(STORAGE_KEY); } catch { }
       save();
       render();
@@ -1732,19 +1714,8 @@
       const savedFieldsBtn = document.getElementById('savedFieldsBtn');
       if (savedFieldsBtn) savedFieldsBtn.addEventListener('click', () => {
         ensureAudio();
-        openSavedFieldsForScope('all');
+        openSavedFields();
       });
-      const scopeSelect = document.getElementById('savedFieldsScopeSelect');
-      scopeSelect?.addEventListener('change', () => {
-        savedFieldsScope = scopeSelect.value;
-        renderSavedFieldsList();
-        if (savedFieldsScope !== 'all' && savedFieldsScope !== 'personal')
-          void window.tubeTallyData?.refreshRemoteFields?.(savedFieldsScope);
-      });
-      window.addEventListener('tubetally:open-organization-fields', event => {
-        openSavedFieldsForScope(event.detail?.organizationId || 'all');
-      });
-      window.addEventListener('tubetally:organizations-updated', () => refreshSavedFieldsScopes());
     }
     
     savedFieldDeleteDialog = document.getElementById('savedFieldDeleteDialog');
@@ -1835,15 +1806,11 @@
     document.getElementById('fieldNameLabel').addEventListener('click', () => {
       if (viewMode) return;
       fieldNameInputDialog.value = state.fieldName || '';
-      const organizationSelect = document.getElementById('fieldOrganizationSelect');
-      if (organizationSelect) organizationSelect.value = state.organizationId || '';
       fieldNameDialog.showModal();
     });
     document.getElementById('fieldNameForm').addEventListener('submit', (e) => {
       e.preventDefault();
       state.fieldName = fieldNameInputDialog.value.trim();
-      const organizationSelect = document.getElementById('fieldOrganizationSelect');
-      state.organizationId = organizationSelect?.value || '';
       if (!state.startedAt) state.startedAt = nowLocalISO();
       save();
       render();
@@ -1873,14 +1840,8 @@
       if (syncUser) void maybeOfferLocalUpload();
     });
     window.addEventListener('tubetally:remote-fields', event => mergeRemoteFields(
-      event.detail?.fields || [],
-      !!event.detail?.cached,
-      event.detail?.organizationId || null,
+      event.detail?.fields || [], !!event.detail?.cached,
     ));
-    window.addEventListener('tubetally:organization-selected', event => {
-      state.organizationId = event.detail?.organizationId || '';
-      save();
-    });
     window.addEventListener('tubetally:snapshot-synced', event => {
       const { localFieldId, runId, userId } = event.detail || {};
       const field = savedFields.find(item => item.id === localFieldId || fieldRunId(item) === runId);
