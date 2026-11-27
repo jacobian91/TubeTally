@@ -25,7 +25,7 @@ test('Spanish localization parses and translates critical controls', () => {
   assert.equal(i18n.translate('Good'), 'Bien');
   assert.equal(i18n.translate('Slow'), 'Lento');
   assert.equal(i18n.translate('Fast'), 'Rápido');
-  assert.equal(i18n.translate('Show fields from'), 'Mostrar campos de');
+  assert.equal(i18n.translate('Invite someone to Tube Tally'), 'Invitar a alguien a Tube Tally');
   assert.equal(i18n.translate('Viewing West 40'), 'Viendo West 40');
   i18n.setLanguage('es');
   assert.equal(context.document.documentElement.lang, 'es');
@@ -41,9 +41,13 @@ test('shared links are passed as URLs, and query and legacy fragment links are a
   assert.match(html, /cbUrl\.searchParams\.set\('cb'/);
 });
 
-test('field scopes, row navigation and long press hooks are wired', () => {
-  assert.match(html, /id="savedFieldsScopeSelect"/);
-  assert.match(html, /tubetally:open-organization-fields/);
+test('personal fields, independent sharing, responsive header and long-press hooks are wired', () => {
+  assert.doesNotMatch(html, /id="savedFieldsScopeSelect"|id="authOrganizations"|id="fieldOrganizationSelect"/);
+  assert.match(html, /id="accountInviteForm"/);
+  assert.match(html, /class="topbar /);
+  assert.match(html, /@media \(max-width: 720px\)/);
+  assert.match(html, /Shared links open directly in independent edit mode/);
+  assert.match(html, /cleanedUrl\.searchParams\.delete\('d'\)/);
   assert.match(html, /fieldViz'\)\.addEventListener\('click'/);
   assert.match(html, /openChangeRowDialog\(n, state\.rows\[n\]\)/);
   assert.match(html, /holdTimer = setTimeout/);
@@ -107,5 +111,5 @@ test('iPhone install area shows Safari Home Screen instructions, not a disabled 
   assert.match(html, /installBtnEl\.classList\.toggle\('hidden', isAppleMobile\)/);
   assert.match(html, /isSafariOnAppleMobile/);
   assert.equal(languageSource.includes('Selecciona Añadir a pantalla de inicio.'), true);
-  assert.match(workerSource, /tubetally-runtime-v14/);
+  assert.match(workerSource, /tubetally-runtime-v15/);
 });
