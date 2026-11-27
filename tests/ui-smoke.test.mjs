@@ -55,9 +55,9 @@ test('personal fields, independent sharing, responsive header and long-press hoo
   assert.match(workerSource, /'\.\/i18n\.js'/);
 });
 
-test('all nine dialogs have visible accessible exit controls and status order matches main buttons', () => {
+test('all ten dialogs have visible accessible exit controls and status order matches main buttons', () => {
   const dialogs = [...html.matchAll(/<dialog\b([^>]*)>([\s\S]*?)<\/dialog>/g)];
-  assert.equal(dialogs.length, 9, 'audit every dialog, including authentication and confirmations');
+  assert.equal(dialogs.length, 10, 'audit every dialog, including authentication and confirmations');
   for (const [, attributes, contents] of dialogs) {
     const id = /\bid="([^"]+)"/.exec(attributes)?.[1];
     assert(id, 'dialog needs a stable id');
@@ -78,6 +78,19 @@ test('all nine dialogs have visible accessible exit controls and status order ma
   assert.match(html, /dialog\.close\('cancel'\)/, 'exit buttons must cancel rather than confirm');
   assert.match(html, /resetConfirmDialog\.returnValue = ''/, 'reset prompt must clear stale confirm state');
   assert.match(html, /savedFieldDeleteDialog\.returnValue = ''/, 'delete prompt must clear stale confirm state');
+});
+
+test('sharing offers separate editable link and text report formats', () => {
+  assert.match(html, /id="shareDialog"/);
+  for (const id of ['shareLinkBtn', 'copyShareLinkBtn', 'shareTextBtn', 'copyShareTextBtn', 'shareTextPreview']) {
+    assert.match(html, new RegExp('id="' + id + '"'), id + ' must exist');
+  }
+  assert.match(html, /text: buildReport\(pendingShareData\)/,
+    'Native text sharing uses the full row report, not a generic description');
+  assert.match(html, /url: buildShareUrl\(pendingShareData\)/,
+    'Link sharing uses the compact editable URL');
+  assert.match(html, /format === 'text' \? buildReport\(pendingShareData\) : buildShareUrl\(pendingShareData\)/,
+    'Copy actions choose exactly the requested format');
 });
 
 test('history rows open edit with haptic at 500ms, cancel on tap or scroll', () => {
