@@ -320,6 +320,10 @@
       #accountBtn { grid-column: 2; grid-row: 1; justify-self: end; width: 2.75rem; max-width: none; justify-content: center; }
       #accountName { display: none !important; }
     }
+    @media (max-width: 375px) {
+      /* On very narrow screens the history column cannot fit both labels. */
+      .history-edit-hint { display: none; }
+    }
     @media (max-width: 350px) {
       .topbar-brand h1 { font-size: .95rem; }
       .topbar-actions { gap: .3rem; }
@@ -386,7 +390,7 @@
       <div class="column">
         <!-- HISTORY -->
         <section id="historyWrap" class="flex flex-col flex-1 overflow-hidden">
-          <div class="flex items-center justify-between gap-2 mt-1 mb-2 flex-none"><h2 class="font-semibold">History</h2><span class="text-[10px] font-normal opacity-60">Hold 0.5s to edit</span></div>
+          <div class="flex items-center justify-between gap-2 mt-1 mb-2 flex-none"><h2 class="font-semibold">History</h2><span class="history-edit-hint text-[10px] font-normal opacity-60 whitespace-nowrap">Hold 0.5s to edit</span></div>
           <div id="history" class="flex-1 overflow-y-auto card p-2"></div>
 
           <!-- History stats: compact single-row numeric badges (Slow / Good / Fast) -->
