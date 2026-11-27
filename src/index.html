@@ -349,6 +349,16 @@
     .dialog-exit:hover, .dialog-exit:focus-visible {
       background: rgba(128, 128, 128, .14);
     }
+    /* Match the account modal's inline exit to the standard 40px touch target. */
+    .dialog-exit-inline {
+      flex: none;
+      width: 2.5rem;
+      height: 2.5rem;
+      padding: 0;
+      align-items: center;
+      justify-content: center;
+      border-radius: .75rem;
+    }
     .dialog-heading { padding-right: 3rem; }
     .dialog-exit:focus-visible {
       outline: 2px solid var(--green);
@@ -655,7 +665,7 @@
           <div id="authTitle" class="text-lg font-bold">Log in to Tube Tally</div>
           <p id="authDescription" class="text-sm opacity-70">Use the email address connected to your invited account.</p>
         </div>
-        <button id="authClose" class="icon-btn !p-2" data-surface type="button" aria-label="Close account dialog" title="Close">
+        <button id="authClose" class="dialog-exit-inline icon-btn" data-surface type="button" aria-label="Close account dialog" title="Close">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"></path></svg>
         </button>
       </div>
