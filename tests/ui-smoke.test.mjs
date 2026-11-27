@@ -56,12 +56,12 @@ test('personal fields, independent sharing, responsive header and long-press hoo
 });
 
 test('all nine dialogs have visible accessible exit controls and status order matches main buttons', () => {
-  const dialogs = [...html.matchAll(/<dialog\\b([^>]*)>([\\s\\S]*?)<\\/dialog>/g)];
+  const dialogs = [...html.matchAll(/<dialog\b([^>]*)>([\s\S]*?)<\/dialog>/g)];
   assert.equal(dialogs.length, 9, 'audit every dialog, including authentication and confirmations');
   for (const [, attributes, contents] of dialogs) {
-    const id = /\\bid="([^"]+)"/.exec(attributes)?.[1];
+    const id = /\bid="([^"]+)"/.exec(attributes)?.[1];
     assert(id, 'dialog needs a stable id');
-    assert.match(attributes, /\\baria-labelledby="[^"]+"/, `${id} needs an accessible title`);
+    assert.match(attributes, /\baria-labelledby="[^"]+"/, `${id} needs an accessible title`);
     if (id === 'authDialog') {
       assert.match(contents, /id="authClose"[^>]*aria-label="Close account dialog"/);
     } else {
@@ -75,9 +75,9 @@ test('all nine dialogs have visible accessible exit controls and status order ma
   assert(editor, 'row edit dialog exists');
   const order = [...editor.matchAll(/data-change-status="([^"]+)"/g)].map(match => match[1]);
   assert.deepEqual(order, ['red', 'green', 'yellow'], 'row editor must match Slow / Good / Fast');
-  assert.match(html, /dialog\\.close\\('cancel'\\)/, 'exit buttons must cancel rather than confirm');
-  assert.match(html, /resetConfirmDialog\\.returnValue = ''/, 'reset prompt must clear stale confirm state');
-  assert.match(html, /savedFieldDeleteDialog\\.returnValue = ''/, 'delete prompt must clear stale confirm state');
+  assert.match(html, /dialog\.close\('cancel'\)/, 'exit buttons must cancel rather than confirm');
+  assert.match(html, /resetConfirmDialog\.returnValue = ''/, 'reset prompt must clear stale confirm state');
+  assert.match(html, /savedFieldDeleteDialog\.returnValue = ''/, 'delete prompt must clear stale confirm state');
 });
 
 test('history rows open edit with haptic at 500ms, cancel on tap or scroll', () => {
