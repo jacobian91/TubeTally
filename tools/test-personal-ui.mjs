@@ -80,7 +80,34 @@ try {
   }).then(r => r.status));
   assert.equal(invalidInvite, 400, 'Signup invitation endpoint validates email');
   await page.locator('#authClose').click();
-  console.log('PASS: account shows signup-only invitations and no organizations');
+  for (const width of [320, 360, 390, 720]) {
+    await page.setViewportSize({ width, height: 844 });
+    const signedIn = await page.evaluate(() => {
+      const select = selector => {
+        const r = document.querySelector(selector).getBoundingClientRect();
+        return { left: r.left, right: r.right, top: r.top, bottom: r.bottom };
+      };
+      return {
+        width: window.innerWidth,
+        brand: select('.topbar-brand'),
+        account: select('#accountBtn'),
+        status: select('#syncStatus'),
+        header: select('.topbar'),
+      };
+    });
+    assert(signedIn.account.left >= 0 && signedIn.account.right <= signedIn.width,
+      `Signed-in account must remain on-screen at ${width}px`);
+    assert(Math.min(signedIn.account.right, signedIn.brand.right)
+        - Math.max(signedIn.account.left, signedIn.brand.left) <= 0
+        || Math.min(signedIn.account.bottom, signedIn.brand.bottom)
+        - Math.max(signedIn.account.top, signedIn.brand.top) <= 0,
+      `Signed-in account must not overlap brand at ${width}px`);
+    assert(signedIn.status.right <= signedIn.width + 1,
+      `Sync status must remain on-screen at ${width}px`);
+    assert(signedIn.account.bottom <= signedIn.header.bottom + 1,
+      `Account button must fit in the header at ${width}px`);
+  }
+  console.log('PASS: account shows signup-only invitations and no organizations; signed-in toolbar fits');
 
   const fieldName = `Personal UI test ${Date.now()}`;
   await page.locator('#fieldNameLabel').click();
