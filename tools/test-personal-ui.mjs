@@ -58,8 +58,11 @@ try {
         assert(button.top >= layout.brand.bottom - 1,
           `Action buttons must be below the brand, not squeezed between brand and account at ${width}px`);
       }
-      assert(Math.abs(layout.rects[3].top - layout.brand.top) <= 4,
-        `Account avatar must align with brand at ${width}px`);
+      const account = layout.rects[3];
+      const accountCenterY = (account.top + account.bottom) / 2;
+      const brandCenterY = (layout.brand.top + layout.brand.bottom) / 2;
+      assert(Math.abs(accountCenterY - brandCenterY) <= 3,
+        `Account avatar must be vertically centered alongside brand at ${width}px`);
     }
     for (const rect of layout.rects) {
       assert(rect.left >= 0 && rect.right <= layout.width + 1, `${rect.id} must stay on-screen at ${width}px`);
