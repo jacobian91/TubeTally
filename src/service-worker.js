@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tubetally-runtime-v14';
+const CACHE_NAME = 'tubetally-runtime-v15';
 const OFFLINE_URL = './index.html';
 const ASSETS_TO_CACHE = [
   './',
@@ -8,7 +8,6 @@ const ASSETS_TO_CACHE = [
   './version.json',
   './auth.v2.10.bundle.js',
   './data-storage.v2.bundle.js',
-  './organizations.v1.1.bundle.js',
   './i18n.js'
 ];
 

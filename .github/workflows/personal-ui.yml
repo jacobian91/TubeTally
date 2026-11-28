@@ -1,0 +1,68 @@
+name: Personal fields browser integration
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+    paths:
+      - 'src/**'
+      - 'netlify/functions/**'
+      - 'netlify/database/migrations/**'
+      - 'tools/test-personal-ui.mjs'
+      - '.github/workflows/personal-ui.yml'
+  workflow_dispatch:
+    inputs:
+      target_url:
+        description: Preview URL to test
+        required: true
+        type: string
+
+jobs:
+  static:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run typecheck:functions
+      - run: npm run check:functions
+      - run: npm run build
+
+  browser:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    environment: organization-integration
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install browser runtime
+        run: |
+          npm install --no-save --package-lock=false playwright
+          npx playwright install --with-deps chromium
+      - name: Exercise responsive header, personal field sync and share editing
+        env:
+          TUBETALLY_E2E_URL: ${{ inputs.target_url || format('https://deploy-preview-{0}--farm-tube-tally.netlify.app', github.event.pull_request.number) }}
+          TUBETALLY_E2E_ADMIN_EMAIL: ${{ secrets.TUBETALLY_E2E_ADMIN_EMAIL }}
+          TUBETALLY_E2E_ADMIN_PASSWORD: ${{ secrets.TUBETALLY_E2E_ADMIN_PASSWORD }}
+        run: node tools/test-personal-ui.mjs
+      - name: Upload mobile header screenshot for visual review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: signed-in-mobile-header
+          path: /tmp/tubetally-mobile-header.png
+          if-no-files-found: ignore
+      - name: Upload browser screenshot on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: personal-ui-failure
+          path: /tmp/personal-ui-failure.png
+          if-no-files-found: ignore

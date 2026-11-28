@@ -7,11 +7,6 @@ import {
   validateRunId,
   validateSnapshot,
 } from './_shared/field-validation.mjs';
-import {
-  OrganizationAuthorizationError,
-  organizationScopeForMember,
-  requireOrganizationAdmin,
-} from './_shared/organization-access.mjs';
 
 const json = (body: unknown, status = 200) => Response.json(body, {
   status,
@@ -39,11 +34,6 @@ async function personalScope(client: any, identityUserId: string) {
   return created.rows[0].id as string;
 }
 
-async function scopeForRequest(client: any, identityUserId: string, organizationId: string | null = null) {
-  if (organizationId) return organizationScopeForMember(client, organizationId, identityUserId);
-  return personalScope(client, identityUserId);
-}
-
 async function saveSnapshot(identityUserId: string, body: unknown) {
   const snapshot = validateSnapshot(body);
   const db = getDatabase();
@@ -51,7 +41,7 @@ async function saveSnapshot(identityUserId: string, body: unknown) {
 
   try {
     await client.query('BEGIN');
-    const scopeId = await scopeForRequest(client, identityUserId, snapshot.organizationId);
+    const scopeId = await personalScope(client, identityUserId);
     let fieldId: string | null = null;
 
     if (snapshot.fieldName) {
@@ -148,11 +138,11 @@ async function saveSnapshot(identityUserId: string, body: unknown) {
   }
 }
 
-async function listRuns(identityUserId: string, organizationId: string | null = null) {
+async function listRuns(identityUserId: string) {
   const db = getDatabase();
   const client = await db.pool.connect();
   try {
-    const scopeId = await scopeForRequest(client, identityUserId, organizationId);
+    const scopeId = await personalScope(client, identityUserId);
     await client.query(
       `DELETE FROM field_snapshots
        WHERE snapshot_type = 'autosave' AND expires_at <= NOW()`,
@@ -221,12 +211,12 @@ async function listRuns(identityUserId: string, organizationId: string | null = 
   }
 }
 
-async function getRunHistory(identityUserId: string, rawRunId: string, organizationId: string | null = null) {
+async function getRunHistory(identityUserId: string, rawRunId: string) {
   const runId = validateRunId(rawRunId);
   const db = getDatabase();
   const client = await db.pool.connect();
   try {
-    const scopeId = await scopeForRequest(client, identityUserId, organizationId);
+    const scopeId = await personalScope(client, identityUserId);
     const result = await client.query(
       `SELECT
          snapshot_id,
@@ -259,13 +249,12 @@ async function getRunHistory(identityUserId: string, rawRunId: string, organizat
   }
 }
 
-async function deleteRun(identityUserId: string, rawRunId: string, organizationId: string | null = null) {
+async function deleteRun(identityUserId: string, rawRunId: string) {
   const runId = validateRunId(rawRunId);
   const db = getDatabase();
   const client = await db.pool.connect();
   try {
-    if (organizationId) await requireOrganizationAdmin(client, organizationId, identityUserId);
-    const scopeId = await scopeForRequest(client, identityUserId, organizationId);
+    const scopeId = await personalScope(client, identityUserId);
     const result = await client.query(
       `DELETE FROM field_runs
        WHERE scope_id = $1 AND run_id = $2
@@ -284,18 +273,17 @@ export default async (req: Request, context: Context) => {
 
   try {
     const runId = context.params.id;
-    const organizationId = new URL(req.url).searchParams.get('organizationId');
+    if (new URL(req.url).searchParams.has('organizationId')) return json({ error: 'Organization fields are no longer supported' }, 400);
     if (req.method !== 'GET') verifyRequestOrigin(req);
-    if (req.method === 'GET' && runId) return json({ snapshots: await getRunHistory(user.id, runId, organizationId) });
-    if (req.method === 'GET') return json({ fields: await listRuns(user.id, organizationId) });
+    if (req.method === 'GET' && runId) return json({ snapshots: await getRunHistory(user.id, runId) });
+    if (req.method === 'GET') return json({ fields: await listRuns(user.id) });
     if (req.method === 'POST' && !runId) return json(await saveSnapshot(user.id, await req.json()), 201);
     if (req.method === 'DELETE' && runId) {
-      const deleted = await deleteRun(user.id, runId, organizationId);
+      const deleted = await deleteRun(user.id, runId);
       return deleted ? new Response(null, { status: 204 }) : json({ error: 'Field not found' }, 404);
     }
     return json({ error: 'Method not allowed' }, 405);
   } catch (error) {
-    if (error instanceof OrganizationAuthorizationError) return json({ error: error.message }, 403);
     if (error instanceof ValidationError || error instanceof SyntaxError) {
       return json({ error: error.message }, 400);
     }

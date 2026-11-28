@@ -1,16 +1,22 @@
 # TubeTally
 
-Track status of anything by numbered row quickly and then be able to share easily. Designed for irrigation tubes for farming
+An offline-capable, mobile-first PWA for counting irrigation tube rows and marking them Good, Slow or Fast.
 
-## Organization integration test
+## Data and accounts
 
-The real two-account organization test is run manually through GitHub Actions and never stores credentials in the repository.
+- Every saved field belongs to a single person's device or signed-in Tube Tally account.
+- Signed-in personal fields sync to Netlify Database. Unsigned users can save locally.
+- A field-share URL embeds the report data; opening it starts an immediately editable **independent** field. No server-side collaboration, access permissions, shared ownership, or copy step.
+- Opening a shared field prompts before replacing an existing active field, and removes the link payload from the URL so later edits survive refresh.
+- Invitations sent from the account panel only invite someone to create their own account; they do not share fields.
+- Organizations, organization memberships, organization data scopes and roles are not supported.
 
-Create the GitHub environment `organization-integration`, then add these environment secrets once:
+## Development and verification
 
-- `TUBETALLY_E2E_ADMIN_EMAIL`
-- `TUBETALLY_E2E_ADMIN_PASSWORD`
-- `TUBETALLY_E2E_MEMBER_EMAIL`
-- `TUBETALLY_E2E_MEMBER_PASSWORD`
+Run `npm ci`, `npm test`, `npm run typecheck:functions`, and `npm run build`.
 
-The check runs automatically for trusted pull-request updates. You can also run **Organization integration** from the Actions tab with a specific deploy-preview URL. It creates or reuses `TubeTally Integration Test`, then verifies invite, accept, admin promotion, demotion, and removal.
+The [Personal fields browser integration](.github/workflows/personal-ui.yml) workflow tests the actual mobile UI, including field save/refresh, independent share editing, account invitations, and toolbar layout at 320–1024 px. Its `organization-integration` GitHub environment retains the existing test-account email/password secrets (`TUBETALLY_E2E_ADMIN_EMAIL`, `TUBETALLY_E2E_ADMIN_PASSWORD`); the workflow does **not** send live signup invitations.
+
+## Beta migration
+
+`20261126170000_personal-only` deletes **organization-owned** beta field records and membership tables. Personal scopes, fields, snapshots and authentication accounts are retained. Treat this migration as irreversible; approve the PR before merging.
